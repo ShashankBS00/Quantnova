@@ -2,15 +2,15 @@ import { Routes, Route } from "react-router-dom";
 
 import Layout from "@/components/layout/Layout";
 
-import Dashboard from "@/pages/Dashboard/Dashboard";
-import Market from "@/pages/Market/Market";
-import Watchlist from "@/pages/Watchlist/Watchlist";
-import Portfolio from "@/pages/Portfolio/Portfolio";
-import Prediction from "@/pages/Prediction/Prediction";
-import Strategy from "@/pages/Strategy/Strategy";
-import Backtest from "@/pages/Backtest/Backtest";
-import Reports from "@/pages/Reports/Reports";
-import Settings from "@/pages/Settings/Settings";
+import Dashboard from "@/Pages/Dashboard/Dashboard";
+import Market from "@/Pages/Market/Market";
+import Watchlist from "@/Pages/Watchlist/Watchlist";
+import Portfolio from "@/Pages/Portfolio/Portfolio";
+import Prediction from "@/Pages/Prediction/Prediction";
+import Strategy from "@/Pages/Strategy/Strategy";
+import Backtest from "@/Pages/Backtest/Backtest";
+import Reports from "@/Pages/Reports/Reports";
+import Settings from "@/Pages/Settings/Settings";
 
 export default function AppRoutes() {
   return (
