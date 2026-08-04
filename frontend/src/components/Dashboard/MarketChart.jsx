@@ -1,6 +1,5 @@
 import CandlestickChart from "@/components/charts/CandlestickChart";
 
-
 export default function MarketChart() {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-[500px]">

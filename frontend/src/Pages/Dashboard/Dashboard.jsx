@@ -1,7 +1,7 @@
 import StatsCard from "@/components/dashboard/StatsCard";
 import MarketChart from "@/components/dashboard/MarketChart";
 import { stats } from "@/data/dashboardData";
-
+import MarketStatus from "@/components/market/MarketStatus";
 
 export default function Dashboard() {
   return (
@@ -15,6 +15,9 @@ export default function Dashboard() {
           Welcome back 👋
         </p>
       </div>
+      <div className="mt-8">
+  <MarketStatus />
+</div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {stats.map((item) => (
