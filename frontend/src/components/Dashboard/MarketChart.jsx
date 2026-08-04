@@ -1,3 +1,6 @@
+import CandlestickChart from "@/components/charts/CandlestickChart";
+
+
 export default function MarketChart() {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-[500px]">
@@ -22,6 +25,9 @@ export default function MarketChart() {
           ))}
         </div>
       </div>
+      <div className="mt-6">
+    <CandlestickChart />
+</div>
 
       <div className="h-[380px] rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center">
         <p className="text-slate-500">
