@@ -17,7 +17,6 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
     "lightweight-charts": "^5.2.0",
-    "lightweight-charts-react-wrapper": "^2.1.1",
     "lucide-react": "^1.27.0",
     "react": "^19.2.7",
     "react-aria-components": "^1.19.0",

@@ -2,12 +2,13 @@ import CandlestickChart from "@/components/charts/CandlestickChart";
 
 export default function MarketChart() {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-[500px]">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold text-white">
             Market Overview
           </h2>
+
           <p className="text-sm text-slate-400">
             RELIANCE.NS • 1 Day
           </p>
@@ -24,15 +25,8 @@ export default function MarketChart() {
           ))}
         </div>
       </div>
-      <div className="mt-6">
-    <CandlestickChart />
-</div>
 
-      <div className="h-[380px] rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center">
-        <p className="text-slate-500">
-          TradingView Chart Coming Next 🚀
-        </p>
-      </div>
+      <CandlestickChart />
     </div>
   );
 }
