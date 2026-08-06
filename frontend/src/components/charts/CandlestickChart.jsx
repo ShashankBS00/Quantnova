@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createChart, CandlestickSeries } from "lightweight-charts";
+import { getMarketHistory } from "@/services/marketService";
 import { ohlcData } from "@/mock/ohlcData";
 
 export default function CandlestickChart() {
@@ -20,12 +21,6 @@ export default function CandlestickChart() {
         vertLines: { color: "#1e293b" },
         horzLines: { color: "#1e293b" },
       },
-      rightPriceScale: {
-        borderColor: "#334155",
-      },
-      timeScale: {
-        borderColor: "#334155",
-      },
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -36,8 +31,19 @@ export default function CandlestickChart() {
       wickDownColor: "#ef4444",
     });
 
-    candleSeries.setData(ohlcData);
-    chart.timeScale().fitContent();
+    async function loadChart() {
+      try {
+        const result = await getMarketHistory("RELIANCE.NS");
+
+        candleSeries.setData(result.data);
+
+        chart.timeScale().fitContent();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadChart();
 
     const handleResize = () => {
       chart.applyOptions({
@@ -56,7 +62,7 @@ export default function CandlestickChart() {
   return (
     <div
       ref={chartContainerRef}
-      className="w-full h-[450px] rounded-xl overflow-hidden"
+      className="w-full h-[450px]"
     />
   );
 }
