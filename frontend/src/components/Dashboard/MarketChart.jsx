@@ -11,9 +11,10 @@ const timeframes = [
   { label: "1Y", period: "1y" },
   { label: "5Y", period: "5y" },
 ];
-
-export default function MarketChart() {
-  const [symbol, setSymbol] = useState("RELIANCE.NS");
+export default function MarketChart({
+  symbol,
+  onSymbolChange,
+}) { 
   const [period, setPeriod] = useState("1mo");
 
   return (
@@ -33,7 +34,7 @@ export default function MarketChart() {
           </div>
 
           <div className="w-full lg:w-[420px]">
-            <StockSearch onSearch={setSymbol} />
+         <StockSearch onSearch={onSymbolChange} />
           </div>
         </div>
 

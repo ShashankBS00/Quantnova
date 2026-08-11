@@ -33,7 +33,8 @@ export default function CandlestickChart({ symbol, period }) {
 
     async function loadChart() {
       try {
-const result = await getMarketHistory(symbol, period);        candleSeries.setData(result.data);
+const result = await getMarketHistory(symbol, period);    
+    candleSeries.setData(result.data);
 
         chart.timeScale().fitContent();
       } catch (err) {
