@@ -45,9 +45,10 @@ export default function Dashboard() {
 
       {/* Watchlist + AI */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-        <Watchlist
-          onSelectStock={setSelectedSymbol}
-        />
+     <Watchlist
+  selectedSymbol={selectedSymbol}
+  onSelectStock={setSelectedSymbol}
+/>
 
         <PredictionCard />
       </div>

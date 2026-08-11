@@ -7,8 +7,10 @@ const stocks = [
   "INFY.NS",
   "HDFCBANK.NS",
 ];
-
-export default function Watchlist({ onSelectStock }) {
+export default function Watchlist({
+  selectedSymbol,
+  onSelectStock,
+}) {
   const [marketData, setMarketData] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,7 +86,11 @@ export default function Watchlist({ onSelectStock }) {
            <button
   key={stock.symbol}
   onClick={() => onSelectStock(stock.symbol)}
-  className="w-full flex items-center justify-between rounded-xl bg-slate-800/60 px-4 py-3 text-left hover:bg-slate-700 transition"
+ className={`w-full flex items-center justify-between rounded-xl px-4 py-3 text-left transition ${
+  selectedSymbol === stock.symbol
+    ? "bg-blue-600/20 border border-blue-500"
+    : "bg-slate-800/60 hover:bg-slate-700"
+}`}
 >
               <div>
                 <p className="font-medium text-white">
