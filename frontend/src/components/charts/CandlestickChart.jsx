@@ -3,8 +3,8 @@ import { createChart, CandlestickSeries } from "lightweight-charts";
 import { getMarketHistory } from "@/services/marketService";
 import { ohlcData } from "@/mock/ohlcData";
 
-export default function CandlestickChart() {
-  const chartContainerRef = useRef(null);
+export default function CandlestickChart({ symbol, period }) {
+    const chartContainerRef = useRef(null);
 
   useEffect(() => {
     const container = chartContainerRef.current;
@@ -33,9 +33,7 @@ export default function CandlestickChart() {
 
     async function loadChart() {
       try {
-        const result = await getMarketHistory("RELIANCE.NS");
-
-        candleSeries.setData(result.data);
+const result = await getMarketHistory(symbol, period);        candleSeries.setData(result.data);
 
         chart.timeScale().fitContent();
       } catch (err) {
@@ -57,7 +55,7 @@ export default function CandlestickChart() {
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, []);
+ }, [symbol, period]);
 
   return (
     <div
