@@ -5,10 +5,13 @@ router = APIRouter(prefix="/market", tags=["Market"])
 
 
 @router.get("/history")
-def get_history(symbol: str = "RELIANCE.NS"):
+def get_history(
+    symbol: str = "RELIANCE.NS",
+    period: str = "1mo"
+):
     stock = yf.Ticker(symbol)
 
-    history = stock.history(period="1mo")
+    history = stock.history(period=period)
 
     data = []
 
