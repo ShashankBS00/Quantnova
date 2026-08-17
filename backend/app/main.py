@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.api.trading import router as trading_router
 from app.api.market import router as market_router
 
 app = FastAPI(
@@ -24,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(market_router)
+app.include_router(trading_router)
 
 @app.get("/")
 def home():

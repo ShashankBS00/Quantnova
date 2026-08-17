@@ -1,8 +1,14 @@
 from fastapi import APIRouter
 import yfinance as yf
 import pandas as pd
+import time
 
 router = APIRouter(prefix="/market", tags=["Market"])
+
+# Simple in-memory cache
+market_cache = {}
+
+CACHE_DURATION = 30  # seconds
 
 
 @router.get("/history")
@@ -10,6 +16,18 @@ def get_history(
     symbol: str = "RELIANCE.NS",
     period: str = "1mo"
 ):
+    cache_key = f"{symbol}:{period}"
+
+    # Check cache
+    if cache_key in market_cache:
+        cached_data, cached_time = market_cache[cache_key]
+
+        if time.time() - cached_time < CACHE_DURATION:
+            print(f"⚡ Cache hit: {symbol} ({period})")
+            return cached_data
+
+    print(f"🌐 Fetching Yahoo Finance: {symbol} ({period})")
+
     stock = yf.Ticker(symbol)
 
     history = stock.history(period=period)
@@ -18,7 +36,6 @@ def get_history(
 
     for index, row in history.iterrows():
 
-        # Skip rows with missing OHLC values
         if (
             pd.isna(row["Open"])
             or pd.isna(row["High"])
@@ -35,7 +52,15 @@ def get_history(
             "close": round(float(row["Close"]), 2),
         })
 
-    return {
+    response = {
         "symbol": symbol,
-        "data": data,
+        "data": data
     }
+
+    # Save to cache
+    market_cache[cache_key] = (
+        response,
+        time.time()
+    )
+
+    return response
