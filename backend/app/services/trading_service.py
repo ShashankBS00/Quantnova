@@ -4,6 +4,13 @@ account = {
     "cash": INITIAL_BALANCE,
     "holdings": {},
     "orders": [],
+
+    # Trading analytics
+    "realized_pnl": 0.0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "best_trade": None,
+    "worst_trade": None,
 }
 
 
@@ -18,10 +25,16 @@ def place_paper_order(
 
     total = quantity * price
 
+    # -------------------------
+    # BUY
+    # -------------------------
+
     if side == "BUY":
 
         if total > account["cash"]:
-            raise ValueError("Insufficient paper trading balance")
+            raise ValueError(
+                "Insufficient paper trading balance"
+            )
 
         account["cash"] -= total
 
@@ -39,39 +52,93 @@ def place_paper_order(
         new_quantity = old_quantity + quantity
 
         new_average = (
-            (old_quantity * old_average) +
-            (quantity * price)
+            (old_quantity * old_average)
+            + (quantity * price)
         ) / new_quantity
 
         holding["quantity"] = new_quantity
         holding["average_price"] = new_average
 
+        realized_pnl = 0.0
+
+    # -------------------------
+    # SELL
+    # -------------------------
+
     elif side == "SELL":
 
         if symbol not in account["holdings"]:
-            raise ValueError("You do not own this stock")
+            raise ValueError(
+                "You do not own this stock"
+            )
 
-        holding = account["holdings"]
+        holding = account["holdings"][symbol]
 
-        if holding[symbol]["quantity"] < quantity:
-            raise ValueError("Insufficient shares to sell")
+        if holding["quantity"] < quantity:
+            raise ValueError(
+                "Insufficient shares to sell"
+            )
 
-        holding[symbol]["quantity"] -= quantity
+        average_price = holding["average_price"]
 
+        # Calculate realized P&L
+        realized_pnl = (
+            price - average_price
+        ) * quantity
+
+        # Update holding
+        holding["quantity"] -= quantity
+
+        # Add sale proceeds to cash
         account["cash"] += total
 
-        if holding[symbol]["quantity"] == 0:
-            del holding[symbol]
+        # Update analytics
+        account["realized_pnl"] += realized_pnl
+
+        if realized_pnl > 0:
+            account["winning_trades"] += 1
+
+        elif realized_pnl < 0:
+            account["losing_trades"] += 1
+
+        # Best trade
+        if (
+            account["best_trade"] is None
+            or realized_pnl > account["best_trade"]
+        ):
+            account["best_trade"] = realized_pnl
+
+        # Worst trade
+        if (
+            account["worst_trade"] is None
+            or realized_pnl < account["worst_trade"]
+        ):
+            account["worst_trade"] = realized_pnl
+
+        # Remove holding if fully sold
+        if holding["quantity"] == 0:
+            del account["holdings"][symbol]
+
+    # -------------------------
+    # Invalid side
+    # -------------------------
 
     else:
-        raise ValueError("Side must be BUY or SELL")
+        raise ValueError(
+            "Side must be BUY or SELL"
+        )
+
+    # -------------------------
+    # Create order
+    # -------------------------
 
     order = {
         "symbol": symbol,
         "quantity": quantity,
-        "price": price,
+        "price": round(price, 2),
         "side": side,
         "total": round(total, 2),
+        "realized_pnl": round(realized_pnl, 2),
         "status": "FILLED",
     }
 

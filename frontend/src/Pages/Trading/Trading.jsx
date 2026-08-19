@@ -16,6 +16,7 @@ export default function Trading() {
   const [message, setMessage] = useState("");
   const [marketPrice, setMarketPrice] = useState(null);
 const [priceLoading, setPriceLoading] = useState(false);
+const [showConfirmation, setShowConfirmation] = useState(false);
 async function loadMarketPrice() {
   if (!symbol) return;
 
@@ -47,8 +48,18 @@ async function loadMarketPrice() {
   useEffect(() => {
     loadAccount();
   }, []);
-  useEffect(() => {
+
+
+ useEffect(() => {
   loadMarketPrice();
+
+  const interval = setInterval(() => {
+    loadMarketPrice();
+  }, 30000);
+
+  return () => {
+    clearInterval(interval);
+  };
 }, [symbol]);
 
   async function handleOrder() {
@@ -235,7 +246,7 @@ async function loadMarketPrice() {
 
         {/* Order Button */}
         <button
-          onClick={handleOrder}
+onClick={() => setShowConfirmation(true)}
           disabled={loading}
           className={`mt-6 w-full py-3 rounded-lg font-semibold text-white ${
             side === "BUY"
@@ -355,6 +366,98 @@ async function loadMarketPrice() {
         )}
 
       </div>
+      {showConfirmation && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+    <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+
+      <h2 className="text-xl font-semibold text-white">
+        Confirm {side} Order
+      </h2>
+
+      <p className="text-slate-400 mt-2">
+        Please review your order before submitting.
+      </p>
+
+      <div className="mt-6 space-y-4">
+
+        <div className="flex justify-between">
+          <span className="text-slate-400">
+            Symbol
+          </span>
+
+          <span className="text-white font-medium">
+            {symbol}
+          </span>
+        </div>
+
+        <div className="flex justify-between">
+          <span className="text-slate-400">
+            Quantity
+          </span>
+
+          <span className="text-white">
+            {quantity}
+          </span>
+        </div>
+
+        <div className="flex justify-between">
+          <span className="text-slate-400">
+            Price
+          </span>
+
+          <span className="text-white">
+            ₹{Number(price).toFixed(2)}
+          </span>
+        </div>
+
+        <div className="border-t border-slate-800 pt-4 flex justify-between">
+          <span className="text-slate-400">
+            Total
+          </span>
+
+          <span className="text-white font-bold">
+            ₹
+            {(
+              Number(price) * Number(quantity)
+            ).toFixed(2)}
+          </span>
+        </div>
+
+      </div>
+
+      <div className="flex gap-3 mt-6">
+
+        <button
+          type="button"
+          onClick={() => setShowConfirmation(false)}
+          className="flex-1 py-3 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          onClick={async () => {
+            setShowConfirmation(false);
+            await handleOrder();
+          }}
+          disabled={loading}
+          className={`flex-1 py-3 rounded-lg font-semibold text-white ${
+            side === "BUY"
+              ? "bg-green-600 hover:bg-green-700"
+              : "bg-red-600 hover:bg-red-700"
+          } disabled:opacity-50`}
+        >
+          {loading
+            ? "Processing..."
+            : `Confirm ${side}`}
+        </button>
+
+      </div>
+
+    </div>
+  </div>
+)}
     </div>
   );
 }
