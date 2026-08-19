@@ -12,6 +12,7 @@ import Backtest from "@/pages/Backtest/Backtest";
 import Reports from "@/pages/Reports/Reports";
 import Settings from "@/pages/Settings/Settings";
 import Trading from "@/pages/Trading/Trading";
+import TradingAnalytics from "@/pages/Trading/TradingAnalytics";
 export default function AppRoutes() {
   return (
     <Routes>
@@ -101,6 +102,14 @@ export default function AppRoutes() {
   element={
     <Layout>
       <Trading />
+    </Layout>
+  }
+/>
+<Route
+  path="/trading-analytics"
+  element={
+    <Layout>
+      <TradingAnalytics />
     </Layout>
   }
 />

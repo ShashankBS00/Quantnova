@@ -1,49 +1,83 @@
-import { holdings } from "@/data/portfolioData";
-
-export default function PortfolioSummary({ marketData, loading }) {
+export default function PortfolioSummary({
+  holdings,
+  marketData,
+  loading,
+}) {
+  // Total amount invested
   const totalInvestment = holdings.reduce(
     (total, stock) =>
       total + stock.quantity * stock.averagePrice,
     0
   );
 
+  // Current market value
   const currentValue = holdings.reduce(
     (total, stock) => {
       const data = marketData[stock.symbol];
 
-      if (!data) return total;
+      if (
+        !data ||
+        typeof data.currentPrice !== "number"
+      ) {
+        return total;
+      }
 
-      return total + stock.quantity * data.currentPrice;
+      return (
+        total +
+        stock.quantity * data.currentPrice
+      );
     },
     0
   );
 
-  const overallPnl = currentValue - totalInvestment;
+  // Overall P&L
+  const overallPnl =
+    currentValue - totalInvestment;
 
   const overallPnlPercent =
     totalInvestment > 0
       ? (overallPnl / totalInvestment) * 100
       : 0;
 
+  // Today's P&L
   const todayPnl = holdings.reduce(
     (total, stock) => {
       const data = marketData[stock.symbol];
 
-      if (!data) return total;
+      if (
+        !data ||
+        typeof data.currentPrice !== "number" ||
+        typeof data.previousClose !== "number"
+      ) {
+        return total;
+      }
 
       return (
         total +
-        (data.currentPrice - data.previousClose) *
+        (data.currentPrice -
+          data.previousClose) *
           stock.quantity
       );
     },
     0
   );
 
+  // Today's P&L %
+  const todayInvestment =
+    currentValue - todayPnl;
+
   const todayPnlPercent =
-    currentValue - todayPnl > 0
-      ? (todayPnl / (currentValue - todayPnl)) * 100
+    todayInvestment > 0
+      ? (todayPnl / todayInvestment) * 100
       : 0;
+
+  const formatMoney = (value) =>
+    `₹${Math.abs(value).toFixed(2)}`;
+
+  const formatPnl = (value) =>
+    `${value >= 0 ? "+" : "-"}₹${Math.abs(
+      value
+    ).toFixed(2)}`;
 
   const summary = [
     {
@@ -64,12 +98,12 @@ export default function PortfolioSummary({ marketData, loading }) {
       title: "Today's P&L",
       value: loading
         ? "Loading..."
-        : `${todayPnl >= 0 ? "+" : "-"}₹${Math.abs(
-            todayPnl
-          ).toFixed(2)}`,
+        : formatPnl(todayPnl),
       change: loading
         ? "Loading..."
-        : `${todayPnlPercent >= 0 ? "+" : ""}${todayPnlPercent.toFixed(2)}%`,
+        : `${
+            todayPnlPercent >= 0 ? "+" : ""
+          }${todayPnlPercent.toFixed(2)}%`,
       color:
         todayPnl >= 0
           ? "text-green-400"
@@ -79,12 +113,12 @@ export default function PortfolioSummary({ marketData, loading }) {
       title: "Overall P&L",
       value: loading
         ? "Loading..."
-        : `${overallPnl >= 0 ? "+" : "-"}₹${Math.abs(
-            overallPnl
-          ).toFixed(2)}`,
+        : formatPnl(overallPnl),
       change: loading
         ? "Loading..."
-        : `${overallPnlPercent >= 0 ? "+" : ""}${overallPnlPercent.toFixed(2)}%`,
+        : `${
+            overallPnlPercent >= 0 ? "+" : ""
+          }${overallPnlPercent.toFixed(2)}%`,
       color:
         overallPnl >= 0
           ? "text-green-400"

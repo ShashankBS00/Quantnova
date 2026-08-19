@@ -58,11 +58,25 @@ def place_order(order: OrderRequest):
 # -------------------------
 # Get Trading Account
 # -------------------------
-
 @router.get("/account")
 def get_account():
     return {
         "cash": round(account["cash"], 2),
         "holdings": account["holdings"],
         "orders": account["orders"],
+        "realized_pnl": round(
+            account["realized_pnl"], 2
+        ),
+        "winning_trades": account["winning_trades"],
+        "losing_trades": account["losing_trades"],
+        "best_trade": (
+            round(account["best_trade"], 2)
+            if account["best_trade"] is not None
+            else None
+        ),
+        "worst_trade": (
+            round(account["worst_trade"], 2)
+            if account["worst_trade"] is not None
+            else None
+        ),
     }

@@ -6,9 +6,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-import { holdings } from "@/data/portfolioData";
 
 export default function PortfolioAllocation({
+  holdings,
   marketData,
   loading,
 }) {
