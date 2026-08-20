@@ -49,6 +49,17 @@ const menuItems = [
     path: "/backtest",
     icon: BarChart3,
   },
+
+ {
+  name: "Paper Trading",
+  path: "/trading",
+  icon: ChartCandlestick,
+},
+{
+  name: "Performance Lab",
+  path: "/trading-analytics",
+  icon: BarChart3,
+},
   {
     name: "Reports",
     path: "/reports",

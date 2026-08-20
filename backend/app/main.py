@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.trading import router as trading_router
 from app.api.market import router as market_router
+from app.api.strategy import router as strategy_router
 
 app = FastAPI(
     title="QuantNova API",
@@ -25,6 +26,8 @@ app.add_middleware(
 
 app.include_router(market_router)
 app.include_router(trading_router)
+app.include_router(strategy_router)
+
 
 @app.get("/")
 def home():
