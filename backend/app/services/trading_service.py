@@ -1,5 +1,6 @@
 INITIAL_BALANCE = 100000.0
 
+
 account = {
     "cash": INITIAL_BALANCE,
     "holdings": {},
@@ -132,6 +133,15 @@ def place_paper_order(
     # Create order
     # -------------------------
 
+    # Account equity after this order
+    equity = account["cash"]
+
+    for holding in account["holdings"].values():
+        equity += (
+            holding["quantity"]
+            * holding["average_price"]
+        )
+
     order = {
         "symbol": symbol,
         "quantity": quantity,
@@ -139,6 +149,7 @@ def place_paper_order(
         "side": side,
         "total": round(total, 2),
         "realized_pnl": round(realized_pnl, 2),
+        "equity": round(equity, 2),
         "status": "FILLED",
     }
 
