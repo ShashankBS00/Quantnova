@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   getStrategies,
@@ -37,6 +38,7 @@ export default function Strategy() {
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   // Load strategies from backend
   async function loadStrategies() {
@@ -395,10 +397,17 @@ export default function Strategy() {
                   <div className="flex gap-3">
 
                     <button
-                      className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
-                    >
-                      Backtest
-                    </button>
+  onClick={() =>
+    navigate("/backtest", {
+      state: {
+        strategy: strategy,
+      },
+    })
+  }
+  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+>
+  Backtest
+</button>
 
                     <button
                       onClick={() =>
