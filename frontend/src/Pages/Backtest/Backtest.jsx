@@ -68,11 +68,14 @@ const selectedStrategy =
       setLoading(true);
 
       const data = await runBacktest({
-        symbol: symbol.toUpperCase(),
-        fastPeriod,
-        slowPeriod,
-        initialCash,
-      });
+  symbol: symbol.toUpperCase(),
+  strategyType:
+    selectedStrategy?.strategy_type ||
+    "SMA_CROSSOVER",
+  fastPeriod,
+  slowPeriod,
+  initialCash,
+});
 
       setResult(data);
     } catch (error) {
@@ -298,30 +301,67 @@ const selectedStrategy =
 
           </div>
 
-          {/* Trade Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         {/* Performance Statistics */}
+<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <p className="text-sm text-slate-400">
-                Buy Trades
-              </p>
+  {/* Winning Trades */}
+  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+    <p className="text-sm text-slate-400">
+      Winning Trades
+    </p>
 
-              <h2 className="text-2xl font-bold text-green-400 mt-3">
-                {result.buy_trades}
-              </h2>
-            </div>
+    <h2 className="text-2xl font-bold text-green-400 mt-3">
+      {result.winning_trades}
+    </h2>
+  </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <p className="text-sm text-slate-400">
-                Sell Trades
-              </p>
+  {/* Losing Trades */}
+  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+    <p className="text-sm text-slate-400">
+      Losing Trades
+    </p>
 
-              <h2 className="text-2xl font-bold text-red-400 mt-3">
-                {result.sell_trades}
-              </h2>
-            </div>
+    <h2 className="text-2xl font-bold text-red-400 mt-3">
+      {result.losing_trades}
+    </h2>
+  </div>
 
-          </div>
+  {/* Win Rate */}
+  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+    <p className="text-sm text-slate-400">
+      Win Rate
+    </p>
+
+    <h2 className="text-2xl font-bold text-white mt-3">
+      {Number(result.win_rate).toFixed(2)}%
+    </h2>
+  </div>
+
+  {/* Profit Factor */}
+  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+    <p className="text-sm text-slate-400">
+      Profit Factor
+    </p>
+
+    <h2 className="text-2xl font-bold text-white mt-3">
+      {result.profit_factor === null
+        ? "∞"
+        : Number(result.profit_factor).toFixed(2)}
+    </h2>
+  </div>
+
+  {/* Max Drawdown */}
+  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+    <p className="text-sm text-slate-400">
+      Max Drawdown
+    </p>
+
+    <h2 className="text-2xl font-bold text-red-400 mt-3">
+      -{Number(result.max_drawdown).toFixed(2)}%
+    </h2>
+  </div>
+
+</div>
 
           {/* Equity Curve */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
@@ -388,6 +428,78 @@ const selectedStrategy =
 
             </div>
           </div>
+          
+
+          {/* Drawdown Curve */}
+<div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+
+  <div className="mb-6">
+    <h2 className="text-xl font-semibold text-white">
+      Drawdown Curve
+    </h2>
+
+    <p className="text-sm text-slate-400 mt-1">
+      Percentage decline from the previous portfolio peak
+    </p>
+  </div>
+
+  <div className="h-80">
+
+    <ResponsiveContainer
+      width="100%"
+      height="100%"
+    >
+      <LineChart
+        data={result.equity_curve}
+      >
+
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="#1e293b"
+        />
+
+        <XAxis
+          dataKey="date"
+          stroke="#64748b"
+          tick={{ fontSize: 11 }}
+        />
+
+        <YAxis
+          stroke="#64748b"
+          tickFormatter={(value) =>
+            `${value}%`
+          }
+        />
+
+        <Tooltip
+          contentStyle={{
+            backgroundColor: "#0f172a",
+            border: "1px solid #1e293b",
+            borderRadius: "10px",
+            color: "#fff",
+          }}
+          formatter={(value) =>
+            `${Number(value).toFixed(2)}%`
+          }
+        />
+
+        <Line
+          type="monotone"
+          dataKey="drawdown"
+          stroke="#ef4444"
+          strokeWidth={2}
+          dot={false}
+        />
+
+      </LineChart>
+    </ResponsiveContainer>
+
+  </div>
+
+</div>
+
+          
+
 
           {/* Trade History */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
