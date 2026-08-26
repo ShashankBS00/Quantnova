@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+
 import {
   getStrategies,
   createStrategy,
@@ -39,6 +40,8 @@ export default function Strategy() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const [assetType, setAssetType] = useState("STOCK");
+const [timeframe, setTimeframe] = useState("1d");
 
   // Load strategies from backend
   async function loadStrategies() {
@@ -320,6 +323,35 @@ export default function Strategy() {
         </button>
 
       </div>
+      {/* Asset Type */}
+<div>
+  <label className="block text-sm text-slate-400 mb-2">
+    Asset Type
+  </label>
+
+  <select
+    value={assetType}
+    onChange={(e) => setAssetType(e.target.value)}
+    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+  >
+    <option value="STOCK">Stocks</option>
+  </select>
+</div>
+
+{/* Timeframe */}
+<div>
+  <label className="block text-sm text-slate-400 mb-2">
+    Timeframe
+  </label>
+
+  <select
+    value={timeframe}
+    onChange={(e) => setTimeframe(e.target.value)}
+    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+  >
+    <option value="1d">1 Day</option>
+  </select>
+</div>
 
       {/* Saved Strategies */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">

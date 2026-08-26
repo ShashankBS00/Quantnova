@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from app.services.backtest_service import (
     run_sma_backtest,
     run_ema_backtest,
+    run_sma_ema_backtest,
 )
 
 
@@ -40,6 +41,14 @@ def run_backtest(request: BacktestRequest):
         elif strategy_type == "EMA_CROSSOVER":
 
             result = run_ema_backtest(
+                symbol=request.symbol,
+                fast_period=request.fast_period,
+                slow_period=request.slow_period,
+                initial_cash=request.initial_cash,
+            )
+        elif strategy_type == "SMA_EMA_TREND":
+
+             result = run_sma_ema_backtest(
                 symbol=request.symbol,
                 fast_period=request.fast_period,
                 slow_period=request.slow_period,
