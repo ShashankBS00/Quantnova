@@ -1,13 +1,24 @@
 strategies = []
 
 
+# --------------------------------
+# Create Strategy
+# --------------------------------
+
 def create_strategy(
     name: str,
     symbol: str,
     strategy_type: str,
     fast_period: int,
     slow_period: int,
+    asset_type: str = "STOCK",
+    timeframe: str = "1d",
 ):
+
+    # -------------------------
+    # Basic validation
+    # -------------------------
+
     if not name.strip():
         raise ValueError(
             "Strategy name is required"
@@ -33,7 +44,17 @@ def create_strategy(
             "Fast period must be smaller than slow period"
         )
 
+    # -------------------------
+    # Normalize values
+    # -------------------------
+
     strategy_type = strategy_type.upper()
+    asset_type = asset_type.upper()
+    timeframe = timeframe.lower()
+
+    # -------------------------
+    # Allowed strategies
+    # -------------------------
 
     allowed_strategies = [
         "SMA_CROSSOVER",
@@ -46,14 +67,51 @@ def create_strategy(
             "Unsupported strategy type"
         )
 
+    # -------------------------
+    # Allowed asset types
+    # -------------------------
+
+    allowed_asset_types = [
+        "STOCK",
+    ]
+
+    if asset_type not in allowed_asset_types:
+        raise ValueError(
+            "Unsupported asset type"
+        )
+
+    # -------------------------
+    # Allowed timeframes
+    # -------------------------
+
+    allowed_timeframes = [
+        "1d",
+    ]
+
+    if timeframe not in allowed_timeframes:
+        raise ValueError(
+            "Unsupported timeframe"
+        )
+
+    # -------------------------
+    # Create strategy
+    # -------------------------
+
     strategy = {
         "id": len(strategies) + 1,
+
         "name": name.strip(),
-        "symbol": symbol.upper(),
-        "asset_type": "STOCK",
-        "timeframe": "1d",
+
+        "symbol": symbol.strip().upper(),
+
+        "asset_type": asset_type,
+
+        "timeframe": timeframe,
+
         "strategy_type": strategy_type,
+
         "fast_period": fast_period,
+
         "slow_period": slow_period,
     }
 
@@ -62,14 +120,27 @@ def create_strategy(
     return strategy
 
 
+# --------------------------------
+# Get All Strategies
+# --------------------------------
+
 def get_strategies():
+
     return strategies
 
 
-def get_strategy(strategy_id: int):
+# --------------------------------
+# Get Single Strategy
+# --------------------------------
+
+def get_strategy(
+    strategy_id: int,
+):
+
     for strategy in strategies:
 
         if strategy["id"] == strategy_id:
+
             return strategy
 
     raise ValueError(
@@ -77,7 +148,13 @@ def get_strategy(strategy_id: int):
     )
 
 
-def delete_strategy(strategy_id: int):
+# --------------------------------
+# Delete Strategy
+# --------------------------------
+
+def delete_strategy(
+    strategy_id: int,
+):
 
     for index, strategy in enumerate(
         strategies

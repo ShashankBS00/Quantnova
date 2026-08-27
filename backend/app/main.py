@@ -4,13 +4,23 @@ from app.api.trading import router as trading_router
 from app.api.market import router as market_router
 from app.api.strategy import router as strategy_router
 from app.api.backtest import router as backtest_router
+from app.api.paper_trading import (
+    router as paper_trading_router
+)
+from app.database.database import Base, engine
+from app.database import models
+from app.routers.auth import router as auth_router
 
 app = FastAPI(
     title="QuantNova API",
     version="1.0.0",
     description="AI-Powered Algorithmic Trading Platform API",
+    
 )
 
+Base.metadata.create_all(
+    bind=engine
+)
 # CORS Configuration
 origins = [
     "http://localhost:5173",
@@ -29,6 +39,10 @@ app.include_router(market_router)
 app.include_router(trading_router)
 app.include_router(strategy_router)
 app.include_router(backtest_router)
+app.include_router(paper_trading_router)
+app.include_router(
+    auth_router
+)
 
 
 @app.get("/")

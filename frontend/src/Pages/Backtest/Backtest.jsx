@@ -16,6 +16,8 @@ export default function Backtest() {
   const [symbol, setSymbol] = useState("TCS.NS");
   const [fastPeriod, setFastPeriod] = useState(20);
   const [slowPeriod, setSlowPeriod] = useState(50);
+  const [strategyType, setStrategyType] =
+  useState("SMA_CROSSOVER");
   const [initialCash, setInitialCash] = useState(100000);
 
   const [result, setResult] = useState(null);
@@ -26,8 +28,7 @@ export default function Backtest() {
 const selectedStrategy =
   location.state?.strategy;
   
-
-  useEffect(() => {
+useEffect(() => {
   if (!selectedStrategy) {
     return;
   }
@@ -41,8 +42,11 @@ const selectedStrategy =
   setSlowPeriod(
     selectedStrategy.slow_period
   );
-}, [selectedStrategy]);
 
+  setStrategyType(
+    selectedStrategy.strategy_type
+  );
+}, [selectedStrategy]);
 
 
 
@@ -67,16 +71,17 @@ const selectedStrategy =
     try {
       setLoading(true);
 
-      const data = await runBacktest({
+     const data = await runBacktest({
   symbol: symbol.toUpperCase(),
-  strategyType:
-    selectedStrategy?.strategy_type ||
-    "SMA_CROSSOVER",
-  fastPeriod,
-  slowPeriod,
-  initialCash,
-});
 
+  strategyType: strategyType,
+
+  fastPeriod: Number(fastPeriod),
+
+  slowPeriod: Number(slowPeriod),
+
+  initialCash: Number(initialCash),
+});
       setResult(data);
     } catch (error) {
       console.error(
@@ -156,8 +161,8 @@ const selectedStrategy =
           {/* Fast */}
           <div>
             <label className="block text-sm text-slate-400 mb-2">
-              Fast SMA
-            </label>
+  Fast Period
+</label>
 
             <input
               type="number"
@@ -173,7 +178,7 @@ const selectedStrategy =
           {/* Slow */}
           <div>
             <label className="block text-sm text-slate-400 mb-2">
-              Slow SMA
+              Slow Period
             </label>
 
             <input
@@ -207,15 +212,40 @@ const selectedStrategy =
         </div>
 
         {/* Strategy info */}
-        <div className="mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <p className="text-sm text-slate-300">
-            <span className="font-semibold text-white">
-              SMA Crossover:
-            </span>{" "}
-            Buy when the fast SMA moves above the slow
-            SMA and sell when it moves below.
-          </p>
-        </div>
+<div className="mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+
+  {strategyType === "SMA_CROSSOVER" && (
+    <p className="text-sm text-slate-300">
+      <span className="font-semibold text-white">
+        SMA Crossover:
+      </span>{" "}
+      Buy when the fast SMA is above the slow SMA
+      and sell when the fast SMA is below the slow SMA.
+    </p>
+  )}
+
+  {strategyType === "EMA_CROSSOVER" && (
+    <p className="text-sm text-slate-300">
+      <span className="font-semibold text-white">
+        EMA Crossover:
+      </span>{" "}
+      Buy when the fast EMA is above the slow EMA
+      and sell when the fast EMA is below the slow EMA.
+    </p>
+  )}
+
+  {strategyType === "SMA_EMA_TREND" && (
+    <p className="text-sm text-slate-300">
+      <span className="font-semibold text-white">
+        SMA + EMA Trend:
+      </span>{" "}
+      Buy when the price is above the fast EMA and
+      the fast EMA is above the slow SMA. Sell when
+      the trend conditions turn bearish.
+    </p>
+  )}
+
+</div>
 
         {/* Error */}
         {error && (

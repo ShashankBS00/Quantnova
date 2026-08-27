@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { runPaperTrade } from "@/services/paperTradingService";
 
 import {
   getStrategies,
@@ -8,42 +9,83 @@ import {
   deleteStrategy,
 } from "@/services/strategyService";
 
-const strategyTypes = [
-  {
-    value: "SMA_CROSSOVER",
-    label: "SMA Crossover",
-  },
-  {
-    value: "EMA_CROSSOVER",
-    label: "EMA Crossover",
-  },
-  {
-    value: "RSI",
-    label: "RSI Strategy",
-  },
-];
+import {
+  strategyTypes,
+  assetTypes,
+  timeframes,
+} from "@/config/strategies";
 
 export default function Strategy() {
+  const navigate = useNavigate();
+
+  // --------------------------------
+  // Form state
+  // --------------------------------
+
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("TCS.NS");
+
   const [strategyType, setStrategyType] =
     useState("SMA_CROSSOVER");
 
-  const [fastPeriod, setFastPeriod] = useState(20);
-  const [slowPeriod, setSlowPeriod] = useState(50);
+  const [assetType, setAssetType] =
+    useState("STOCK");
 
-  const [strategies, setStrategies] = useState([]);
+  const [timeframe, setTimeframe] =
+    useState("1d");
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [fastPeriod, setFastPeriod] =
+    useState(20);
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const navigate = useNavigate();
-  const [assetType, setAssetType] = useState("STOCK");
-const [timeframe, setTimeframe] = useState("1d");
+  const [slowPeriod, setSlowPeriod] =
+    useState(50);
 
-  // Load strategies from backend
+  // --------------------------------
+  // Strategy list
+  // --------------------------------
+
+  const [strategies, setStrategies] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  // --------------------------------
+  // Messages
+  // --------------------------------
+
+  const [message, setMessage] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  // --------------------------------
+  // Paper trading
+  // --------------------------------
+
+  const [paperTradingId, setPaperTradingId] =
+    useState(null);
+
+  const [paperTradeResult, setPaperTradeResult] =
+    useState(null);
+
+  // --------------------------------
+  // Selected strategy configuration
+  // --------------------------------
+
+  const selectedStrategy = strategyTypes.find(
+    (strategy) =>
+      strategy.value === strategyType
+  );
+
+  // --------------------------------
+  // Load strategies
+  // --------------------------------
+
   async function loadStrategies() {
     try {
       setLoading(true);
@@ -51,7 +93,9 @@ const [timeframe, setTimeframe] = useState("1d");
 
       const data = await getStrategies();
 
-      setStrategies(data);
+      setStrategies(
+        Array.isArray(data) ? data : []
+      );
     } catch (error) {
       console.error(
         "Failed to load strategies:",
@@ -71,22 +115,49 @@ const [timeframe, setTimeframe] = useState("1d");
     loadStrategies();
   }, []);
 
+  // --------------------------------
   // Create strategy
+  // --------------------------------
+
   async function handleSave() {
     setMessage("");
     setError("");
+    setPaperTradeResult(null);
 
+    // Validate name
     if (!name.trim()) {
       setError("Enter a strategy name.");
       return;
     }
 
+    // Validate symbol
     if (!symbol.trim()) {
       setError("Enter a stock symbol.");
       return;
     }
 
-    if (Number(fastPeriod) >= Number(slowPeriod)) {
+    const fast = Number(fastPeriod);
+    const slow = Number(slowPeriod);
+
+    // Validate periods
+    if (
+      !Number.isInteger(fast) ||
+      !Number.isInteger(slow)
+    ) {
+      setError(
+        "Fast and slow periods must be valid numbers."
+      );
+      return;
+    }
+
+    if (fast <= 0 || slow <= 0) {
+      setError(
+        "Periods must be greater than 0."
+      );
+      return;
+    }
+
+    if (fast >= slow) {
       setError(
         "Fast period must be smaller than slow period."
       );
@@ -96,19 +167,28 @@ const [timeframe, setTimeframe] = useState("1d");
     try {
       setSaving(true);
 
-      const strategy = await createStrategy({
-        name: name.trim(),
-        symbol: symbol.toUpperCase(),
-        strategy_type: strategyType,
-        fast_period: Number(fastPeriod),
-        slow_period: Number(slowPeriod),
-      });
+      const strategy =
+        await createStrategy({
+          name: name.trim(),
 
+          symbol:
+            symbol.trim().toUpperCase(),
+
+          strategy_type:
+            strategyType,
+
+          fast_period: fast,
+
+          slow_period: slow,
+        });
+
+      // Add strategy to UI
       setStrategies((current) => [
         ...current,
         strategy,
       ]);
 
+      // Reset form
       setName("");
 
       setMessage(
@@ -129,17 +209,59 @@ const [timeframe, setTimeframe] = useState("1d");
     }
   }
 
-  // Delete strategy
-  async function handleDelete(id) {
-    try {
-      setError("");
-      setMessage("");
+  // --------------------------------
+  // Paper Trade
+  // --------------------------------
 
+  async function handlePaperTrade(
+    strategyId
+  ) {
+    setError("");
+    setMessage("");
+    setPaperTradeResult(null);
+
+    try {
+      setPaperTradingId(strategyId);
+
+      const result =
+        await runPaperTrade(strategyId);
+
+      setPaperTradeResult(result);
+
+      setMessage(
+        `Paper trade completed. Signal: ${result.signal}`
+      );
+    } catch (error) {
+      console.error(
+        "Paper trade failed:",
+        error
+      );
+
+      setError(
+        error.response?.data?.detail ||
+          "Paper trade failed."
+      );
+    } finally {
+      setPaperTradingId(null);
+    }
+  }
+
+  // --------------------------------
+  // Delete strategy
+  // --------------------------------
+
+  async function handleDelete(id) {
+    setError("");
+    setMessage("");
+    setPaperTradeResult(null);
+
+    try {
       await deleteStrategy(id);
 
       setStrategies((current) =>
         current.filter(
-          (strategy) => strategy.id !== id
+          (strategy) =>
+            strategy.id !== id
         )
       );
 
@@ -159,31 +281,48 @@ const [timeframe, setTimeframe] = useState("1d");
     }
   }
 
+  // --------------------------------
+  // Get strategy label
+  // --------------------------------
+
   function getStrategyLabel(type) {
-    const strategy = strategyTypes.find(
-      (item) => item.value === type
-    );
+    const strategy =
+      strategyTypes.find(
+        (item) =>
+          item.value === type
+      );
 
     return strategy
       ? strategy.label
       : type;
   }
 
+  // --------------------------------
+  // Render
+  // --------------------------------
+
   return (
     <div className="space-y-8">
 
+      {/* ================================= */}
       {/* Header */}
+      {/* ================================= */}
+
       <div>
         <h1 className="text-3xl font-bold text-white">
           Strategy Builder
         </h1>
 
         <p className="text-slate-400 mt-2">
-          Create and manage algorithmic trading strategies
+          Create and manage algorithmic
+          trading strategies
         </p>
       </div>
 
+      {/* ================================= */}
       {/* Create Strategy */}
+      {/* ================================= */}
+
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
         <h2 className="text-xl font-semibold text-white mb-6">
@@ -192,7 +331,8 @@ const [timeframe, setTimeframe] = useState("1d");
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-          {/* Name */}
+          {/* Strategy Name */}
+
           <div>
             <label className="block text-sm text-slate-400 mb-2">
               Strategy Name
@@ -209,6 +349,7 @@ const [timeframe, setTimeframe] = useState("1d");
           </div>
 
           {/* Symbol */}
+
           <div>
             <label className="block text-sm text-slate-400 mb-2">
               Stock Symbol
@@ -226,7 +367,58 @@ const [timeframe, setTimeframe] = useState("1d");
             />
           </div>
 
+          {/* Asset Type */}
+
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">
+              Asset Type
+            </label>
+
+            <select
+              value={assetType}
+              onChange={(e) =>
+                setAssetType(e.target.value)
+              }
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+            >
+              {assetTypes.map((asset) => (
+                <option
+                  key={asset.value}
+                  value={asset.value}
+                >
+                  {asset.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Timeframe */}
+
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">
+              Timeframe
+            </label>
+
+            <select
+              value={timeframe}
+              onChange={(e) =>
+                setTimeframe(e.target.value)
+              }
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+            >
+              {timeframes.map((item) => (
+                <option
+                  key={item.value}
+                  value={item.value}
+                >
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Strategy Type */}
+
           <div>
             <label className="block text-sm text-slate-400 mb-2">
               Strategy Type
@@ -239,18 +431,21 @@ const [timeframe, setTimeframe] = useState("1d");
               }
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
             >
-              {strategyTypes.map((strategy) => (
-                <option
-                  key={strategy.value}
-                  value={strategy.value}
-                >
-                  {strategy.label}
-                </option>
-              ))}
+              {strategyTypes.map(
+                (strategy) => (
+                  <option
+                    key={strategy.value}
+                    value={strategy.value}
+                  >
+                    {strategy.label}
+                  </option>
+                )
+              )}
             </select>
           </div>
 
           {/* Fast Period */}
+
           <div>
             <label className="block text-sm text-slate-400 mb-2">
               Fast Period
@@ -261,13 +456,16 @@ const [timeframe, setTimeframe] = useState("1d");
               min="2"
               value={fastPeriod}
               onChange={(e) =>
-                setFastPeriod(e.target.value)
+                setFastPeriod(
+                  e.target.value
+                )
               }
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
             />
           </div>
 
           {/* Slow Period */}
+
           <div>
             <label className="block text-sm text-slate-400 mb-2">
               Slow Period
@@ -278,7 +476,9 @@ const [timeframe, setTimeframe] = useState("1d");
               min="3"
               value={slowPeriod}
               onChange={(e) =>
-                setSlowPeriod(e.target.value)
+                setSlowPeriod(
+                  e.target.value
+                )
               }
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
             />
@@ -286,19 +486,30 @@ const [timeframe, setTimeframe] = useState("1d");
 
         </div>
 
-        {/* Description */}
-        <div className="mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <p className="text-sm text-slate-300">
-            <span className="font-semibold text-white">
-              SMA Crossover:
-            </span>{" "}
-            Buy when the fast moving average crosses
-            above the slow moving average and sell when
-            it crosses below.
-          </p>
-        </div>
+        {/* ================================= */}
+        {/* Strategy Description */}
+        {/* ================================= */}
 
+        {selectedStrategy && (
+          <div className="mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+
+            <p className="text-sm text-slate-300">
+
+              <span className="font-semibold text-white">
+                {selectedStrategy.label}:
+              </span>{" "}
+
+              {selectedStrategy.description}
+
+            </p>
+
+          </div>
+        )}
+
+        {/* ================================= */}
         {/* Messages */}
+        {/* ================================= */}
+
         {error && (
           <p className="mt-4 text-sm text-red-400">
             {error}
@@ -311,7 +522,97 @@ const [timeframe, setTimeframe] = useState("1d");
           </p>
         )}
 
+        {/* ================================= */}
+        {/* Paper Trade Result */}
+        {/* ================================= */}
+
+        {paperTradeResult && (
+          <div className="mt-6 bg-slate-800/60 border border-slate-700 rounded-xl p-5">
+
+            <h3 className="text-lg font-semibold text-white">
+              Paper Trading Result
+            </h3>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+
+              {/* Signal */}
+
+              <div>
+                <p className="text-sm text-slate-400">
+                  Signal
+                </p>
+
+                <p
+                  className={`text-lg font-semibold mt-1 ${
+                    paperTradeResult.signal ===
+                    "BUY"
+                      ? "text-green-400"
+                      : paperTradeResult.signal ===
+                        "SELL"
+                      ? "text-red-400"
+                      : "text-yellow-400"
+                  }`}
+                >
+                  {paperTradeResult.signal}
+                </p>
+              </div>
+
+              {/* Action */}
+
+              <div>
+                <p className="text-sm text-slate-400">
+                  Action
+                </p>
+
+                <p className="text-lg font-semibold text-white mt-1">
+                  {paperTradeResult.action}
+                </p>
+              </div>
+
+              {/* Price */}
+
+              <div>
+                <p className="text-sm text-slate-400">
+                  Price
+                </p>
+
+                <p className="text-lg font-semibold text-white mt-1">
+                  ₹
+                  {Number(
+                    paperTradeResult.price
+                  ).toFixed(2)}
+                </p>
+              </div>
+
+              {/* Symbol */}
+
+              <div>
+                <p className="text-sm text-slate-400">
+                  Symbol
+                </p>
+
+                <p className="text-lg font-semibold text-white mt-1">
+                  {paperTradeResult.symbol}
+                </p>
+              </div>
+
+            </div>
+
+            {/* Message */}
+
+            {paperTradeResult.message && (
+              <p className="mt-4 text-sm text-yellow-400">
+                {paperTradeResult.message}
+              </p>
+            )}
+
+          </div>
+        )}
+
+        {/* ================================= */}
         {/* Save */}
+        {/* ================================= */}
+
         <button
           onClick={handleSave}
           disabled={saving}
@@ -323,37 +624,11 @@ const [timeframe, setTimeframe] = useState("1d");
         </button>
 
       </div>
-      {/* Asset Type */}
-<div>
-  <label className="block text-sm text-slate-400 mb-2">
-    Asset Type
-  </label>
 
-  <select
-    value={assetType}
-    onChange={(e) => setAssetType(e.target.value)}
-    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
-  >
-    <option value="STOCK">Stocks</option>
-  </select>
-</div>
-
-{/* Timeframe */}
-<div>
-  <label className="block text-sm text-slate-400 mb-2">
-    Timeframe
-  </label>
-
-  <select
-    value={timeframe}
-    onChange={(e) => setTimeframe(e.target.value)}
-    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
-  >
-    <option value="1d">1 Day</option>
-  </select>
-</div>
-
+      {/* ================================= */}
       {/* Saved Strategies */}
+      {/* ================================= */}
+
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
         <div className="flex items-center justify-between mb-6">
@@ -380,12 +655,18 @@ const [timeframe, setTimeframe] = useState("1d");
 
         </div>
 
+        {/* Loading */}
+
         {loading ? (
+
           <p className="text-slate-500 py-8 text-center">
             Loading strategies...
           </p>
+
         ) : strategies.length === 0 ? (
+
           <div className="text-center py-10">
+
             <p className="text-slate-500">
               No strategies created yet.
             </p>
@@ -393,71 +674,130 @@ const [timeframe, setTimeframe] = useState("1d");
             <p className="text-sm text-slate-600 mt-2">
               Create your first strategy above.
             </p>
+
           </div>
+
         ) : (
+
           <div className="space-y-4">
 
-            {strategies.map((strategy) => (
-              <div
-                key={strategy.id}
-                className="bg-slate-800/60 border border-slate-700 rounded-xl p-5"
-              >
+            {strategies.map(
+              (strategy) => (
 
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div
+                  key={strategy.id}
+                  className="bg-slate-800/60 border border-slate-700 rounded-xl p-5"
+                >
 
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">
-                      {strategy.name}
-                    </h3>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
-                    <p className="text-sm text-slate-400 mt-1">
-                      {strategy.symbol} •{" "}
-                      {getStrategyLabel(
-                        strategy.strategy_type
-                      )}
-                    </p>
+                    {/* Strategy Details */}
 
-                    <p className="text-sm text-slate-500 mt-2">
-                      Fast:{" "}
-                      {strategy.fast_period}
-                      {" • "}
-                      Slow:{" "}
-                      {strategy.slow_period}
-                    </p>
-                  </div>
+                    <div>
 
-                  <div className="flex gap-3">
+                      <h3 className="text-lg font-semibold text-white">
+                        {strategy.name}
+                      </h3>
 
-                    <button
-  onClick={() =>
-    navigate("/backtest", {
-      state: {
-        strategy: strategy,
-      },
-    })
-  }
-  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
->
-  Backtest
-</button>
+                      <p className="text-sm text-slate-400 mt-1">
+                        {strategy.symbol}
+                        {" • "}
+                        {getStrategyLabel(
+                          strategy.strategy_type
+                        )}
+                      </p>
 
-                    <button
-                      onClick={() =>
-                        handleDelete(strategy.id)
-                      }
-                      className="px-4 py-2 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 transition"
-                    >
-                      Delete
-                    </button>
+                      <p className="text-sm text-slate-500 mt-2">
+                        Asset:{" "}
+                        {strategy.asset_type ||
+                          "STOCK"}
+
+                        {" • "}
+
+                        Timeframe:{" "}
+                        {strategy.timeframe ||
+                          "1d"}
+                      </p>
+
+                      <p className="text-sm text-slate-500 mt-1">
+                        Fast:{" "}
+                        {strategy.fast_period}
+
+                        {" • "}
+
+                        Slow:{" "}
+                        {strategy.slow_period}
+                      </p>
+
+                    </div>
+
+                    {/* Actions */}
+
+                    <div className="flex flex-wrap gap-3">
+
+                      {/* Paper Trade */}
+
+                      <button
+                        onClick={() =>
+                          handlePaperTrade(
+                            strategy.id
+                          )
+                        }
+                        disabled={
+                          paperTradingId ===
+                          strategy.id
+                        }
+                        className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition"
+                      >
+                        {paperTradingId ===
+                        strategy.id
+                          ? "Running..."
+                          : "Paper Trade"}
+                      </button>
+
+                      {/* Backtest */}
+
+                      <button
+                        onClick={() =>
+                          navigate(
+                            "/backtest",
+                            {
+                              state: {
+                                strategy:
+                                  strategy,
+                              },
+                            }
+                          )
+                        }
+                        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+                      >
+                        Backtest
+                      </button>
+
+                      {/* Delete */}
+
+                      <button
+                        onClick={() =>
+                          handleDelete(
+                            strategy.id
+                          )
+                        }
+                        className="px-4 py-2 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 transition"
+                      >
+                        Delete
+                      </button>
+
+                    </div>
 
                   </div>
 
                 </div>
 
-              </div>
-            ))}
+              )
+            )}
 
           </div>
+
         )}
 
       </div>

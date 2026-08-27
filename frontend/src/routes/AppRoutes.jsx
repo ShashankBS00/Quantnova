@@ -2,6 +2,9 @@ import { Routes, Route } from "react-router-dom";
 
 import Layout from "@/components/layout/Layout";
 
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+
 import Dashboard from "@/pages/Dashboard/Dashboard";
 import Market from "@/pages/Market/Market";
 import Watchlist from "@/pages/Watchlist/Watchlist";
@@ -13,9 +16,30 @@ import Reports from "@/pages/Reports/Reports";
 import Settings from "@/pages/Settings/Settings";
 import Trading from "@/pages/Trading/Trading";
 import TradingAnalytics from "@/pages/Trading/TradingAnalytics";
+
 export default function AppRoutes() {
   return (
     <Routes>
+
+      {/* ========================= */}
+      {/* Authentication */}
+      {/* ========================= */}
+
+      <Route
+        path="/login"
+        element={<Login />}
+      />
+
+      <Route
+        path="/register"
+        element={<Register />}
+      />
+
+
+      {/* ========================= */}
+      {/* Dashboard */}
+      {/* ========================= */}
+
       <Route
         path="/"
         element={
@@ -24,6 +48,11 @@ export default function AppRoutes() {
           </Layout>
         }
       />
+
+
+      {/* ========================= */}
+      {/* Market */}
+      {/* ========================= */}
 
       <Route
         path="/market"
@@ -34,6 +63,11 @@ export default function AppRoutes() {
         }
       />
 
+
+      {/* ========================= */}
+      {/* Watchlist */}
+      {/* ========================= */}
+
       <Route
         path="/watchlist"
         element={
@@ -42,6 +76,11 @@ export default function AppRoutes() {
           </Layout>
         }
       />
+
+
+      {/* ========================= */}
+      {/* Portfolio */}
+      {/* ========================= */}
 
       <Route
         path="/portfolio"
@@ -52,6 +91,11 @@ export default function AppRoutes() {
         }
       />
 
+
+      {/* ========================= */}
+      {/* AI Prediction */}
+      {/* ========================= */}
+
       <Route
         path="/prediction"
         element={
@@ -60,6 +104,11 @@ export default function AppRoutes() {
           </Layout>
         }
       />
+
+
+      {/* ========================= */}
+      {/* Strategy */}
+      {/* ========================= */}
 
       <Route
         path="/strategy"
@@ -70,6 +119,11 @@ export default function AppRoutes() {
         }
       />
 
+
+      {/* ========================= */}
+      {/* Backtesting */}
+      {/* ========================= */}
+
       <Route
         path="/backtest"
         element={
@@ -78,6 +132,39 @@ export default function AppRoutes() {
           </Layout>
         }
       />
+
+
+      {/* ========================= */}
+      {/* Paper Trading */}
+      {/* ========================= */}
+
+      <Route
+        path="/trading"
+        element={
+          <Layout>
+            <Trading />
+          </Layout>
+        }
+      />
+
+
+      {/* ========================= */}
+      {/* Trading Analytics */}
+      {/* ========================= */}
+
+      <Route
+        path="/trading-analytics"
+        element={
+          <Layout>
+            <TradingAnalytics />
+          </Layout>
+        }
+      />
+
+
+      {/* ========================= */}
+      {/* Reports */}
+      {/* ========================= */}
 
       <Route
         path="/reports"
@@ -88,6 +175,11 @@ export default function AppRoutes() {
         }
       />
 
+
+      {/* ========================= */}
+      {/* Settings */}
+      {/* ========================= */}
+
       <Route
         path="/settings"
         element={
@@ -97,22 +189,6 @@ export default function AppRoutes() {
         }
       />
 
-      <Route
-  path="/trading"
-  element={
-    <Layout>
-      <Trading />
-    </Layout>
-  }
-/>
-<Route
-  path="/trading-analytics"
-  element={
-    <Layout>
-      <TradingAnalytics />
-    </Layout>
-  }
-/>
     </Routes>
   );
 }
