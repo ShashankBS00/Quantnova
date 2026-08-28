@@ -1,4 +1,6 @@
-strategies = []
+from sqlalchemy.orm import Session
+
+from app.database.models import Strategy
 
 
 # --------------------------------
@@ -6,6 +8,8 @@ strategies = []
 # --------------------------------
 
 def create_strategy(
+    db: Session,
+    user_id: int,
     name: str,
     symbol: str,
     strategy_type: str,
@@ -94,39 +98,46 @@ def create_strategy(
         )
 
     # -------------------------
-    # Create strategy
+    # Create database record
     # -------------------------
 
-    strategy = {
-        "id": len(strategies) + 1,
+    strategy = Strategy(
+        user_id=user_id,
+        name=name.strip(),
+        symbol=symbol.strip().upper(),
+        asset_type=asset_type,
+        timeframe=timeframe,
+        strategy_type=strategy_type,
+        fast_period=fast_period,
+        slow_period=slow_period,
+    )
 
-        "name": name.strip(),
-
-        "symbol": symbol.strip().upper(),
-
-        "asset_type": asset_type,
-
-        "timeframe": timeframe,
-
-        "strategy_type": strategy_type,
-
-        "fast_period": fast_period,
-
-        "slow_period": slow_period,
-    }
-
-    strategies.append(strategy)
+    db.add(strategy)
+    db.commit()
+    db.refresh(strategy)
 
     return strategy
 
 
 # --------------------------------
-# Get All Strategies
+# Get User Strategies
 # --------------------------------
 
-def get_strategies():
+def get_strategies(
+    db: Session,
+    user_id: int,
+):
 
-    return strategies
+    return (
+        db.query(Strategy)
+        .filter(
+            Strategy.user_id == user_id
+        )
+        .order_by(
+            Strategy.id.desc()
+        )
+        .all()
+    )
 
 
 # --------------------------------
@@ -134,18 +145,26 @@ def get_strategies():
 # --------------------------------
 
 def get_strategy(
+    db: Session,
+    user_id: int,
     strategy_id: int,
 ):
 
-    for strategy in strategies:
-
-        if strategy["id"] == strategy_id:
-
-            return strategy
-
-    raise ValueError(
-        "Strategy not found"
+    strategy = (
+        db.query(Strategy)
+        .filter(
+            Strategy.id == strategy_id,
+            Strategy.user_id == user_id,
+        )
+        .first()
     )
+
+    if strategy is None:
+        raise ValueError(
+            "Strategy not found"
+        )
+
+    return strategy
 
 
 # --------------------------------
@@ -153,21 +172,28 @@ def get_strategy(
 # --------------------------------
 
 def delete_strategy(
+    db: Session,
+    user_id: int,
     strategy_id: int,
 ):
 
-    for index, strategy in enumerate(
-        strategies
-    ):
-
-        if strategy["id"] == strategy_id:
-
-            strategies.pop(index)
-
-            return {
-                "message": "Strategy deleted successfully"
-            }
-
-    raise ValueError(
-        "Strategy not found"
+    strategy = (
+        db.query(Strategy)
+        .filter(
+            Strategy.id == strategy_id,
+            Strategy.user_id == user_id,
+        )
+        .first()
     )
+
+    if strategy is None:
+        raise ValueError(
+            "Strategy not found"
+        )
+
+    db.delete(strategy)
+    db.commit()
+
+    return {
+        "message": "Strategy deleted successfully"
+    }

@@ -4,6 +4,7 @@ import Layout from "@/components/layout/Layout";
 
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 import Dashboard from "@/pages/Dashboard/Dashboard";
 import Market from "@/pages/Market/Market";
@@ -22,7 +23,7 @@ export default function AppRoutes() {
     <Routes>
 
       {/* ========================= */}
-      {/* Authentication */}
+      {/* PUBLIC ROUTES */}
       {/* ========================= */}
 
       <Route
@@ -37,155 +38,127 @@ export default function AppRoutes() {
 
 
       {/* ========================= */}
-      {/* Dashboard */}
+      {/* PROTECTED ROUTES */}
       {/* ========================= */}
 
       <Route
         path="/"
         element={
-          <Layout>
-            <Dashboard />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Market */}
-      {/* ========================= */}
 
       <Route
         path="/market"
         element={
-          <Layout>
-            <Market />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Market />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Watchlist */}
-      {/* ========================= */}
 
       <Route
         path="/watchlist"
         element={
-          <Layout>
-            <Watchlist />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Watchlist />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Portfolio */}
-      {/* ========================= */}
 
       <Route
         path="/portfolio"
         element={
-          <Layout>
-            <Portfolio />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Portfolio />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* AI Prediction */}
-      {/* ========================= */}
 
       <Route
         path="/prediction"
         element={
-          <Layout>
-            <Prediction />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Prediction />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Strategy */}
-      {/* ========================= */}
 
       <Route
         path="/strategy"
         element={
-          <Layout>
-            <Strategy />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Strategy />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Backtesting */}
-      {/* ========================= */}
 
       <Route
         path="/backtest"
         element={
-          <Layout>
-            <Backtest />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Backtest />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Paper Trading */}
-      {/* ========================= */}
 
       <Route
         path="/trading"
         element={
-          <Layout>
-            <Trading />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Trading />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Trading Analytics */}
-      {/* ========================= */}
 
       <Route
         path="/trading-analytics"
         element={
-          <Layout>
-            <TradingAnalytics />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <TradingAnalytics />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Reports */}
-      {/* ========================= */}
 
       <Route
         path="/reports"
         element={
-          <Layout>
-            <Reports />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Reports />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-
-      {/* ========================= */}
-      {/* Settings */}
-      {/* ========================= */}
 
       <Route
         path="/settings"
         element={
-          <Layout>
-            <Settings />
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Settings />
+            </Layout>
+          </ProtectedRoute>
         }
       />
 

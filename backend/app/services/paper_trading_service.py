@@ -1,44 +1,57 @@
 import yfinance as yf
 import pandas as pd
 
+from sqlalchemy.orm import Session
+
 from app.services.strategy_service import get_strategy
+
 from app.services.strategies.sma_ema import (
     calculate_sma_ema,
     get_sma_ema_signal,
 )
+
 from app.services.trading_service import (
     place_paper_order,
+    account,
 )
 
 
 def run_strategy_paper_trade(
+    db: Session,
+    user_id: int,
     strategy_id: int,
     capital_per_trade: float = 100000.0,
 ):
-    # --------------------------------
-    # Get saved strategy
-    # --------------------------------
-
-    strategy = get_strategy(strategy_id)
-
-    symbol = strategy["symbol"]
-    strategy_type = strategy["strategy_type"]
-
-    fast_period = strategy["fast_period"]
-    slow_period = strategy["slow_period"]
 
     # --------------------------------
-    # Currently supported strategies
+    # Get user's strategy
+    # --------------------------------
+
+    strategy = get_strategy(
+        db=db,
+        user_id=user_id,
+        strategy_id=strategy_id,
+    )
+
+    symbol = strategy.symbol
+    strategy_type = strategy.strategy_type
+
+    fast_period = strategy.fast_period
+    slow_period = strategy.slow_period
+
+    # --------------------------------
+    # Supported strategy
     # --------------------------------
 
     if strategy_type != "SMA_EMA_TREND":
+
         raise ValueError(
             "Paper trading currently supports "
             "SMA_EMA_TREND only"
         )
 
     # --------------------------------
-    # Download latest market data
+    # Download market data
     # --------------------------------
 
     history = yf.download(
@@ -50,18 +63,33 @@ def run_strategy_paper_trade(
     )
 
     if history.empty:
+
         raise ValueError(
             f"No market data found for {symbol}"
         )
 
+    # --------------------------------
     # Handle yfinance MultiIndex
+    # --------------------------------
+
     if isinstance(
         history.columns,
         pd.MultiIndex,
     ):
+
         history.columns = (
             history.columns
             .get_level_values(0)
+        )
+
+    # --------------------------------
+    # Validate Close
+    # --------------------------------
+
+    if "Close" not in history.columns:
+
+        raise ValueError(
+            "Market data does not contain Close price"
         )
 
     history = history.dropna(
@@ -69,6 +97,7 @@ def run_strategy_paper_trade(
     )
 
     if len(history) < slow_period:
+
         raise ValueError(
             "Not enough market data for this strategy"
         )
@@ -84,7 +113,7 @@ def run_strategy_paper_trade(
     )
 
     # --------------------------------
-    # Latest market data
+    # Latest data
     # --------------------------------
 
     latest = history.iloc[-1]
@@ -97,6 +126,7 @@ def run_strategy_paper_trade(
         pd.isna(fast_ema)
         or pd.isna(slow_sma)
     ):
+
         raise ValueError(
             "Indicators are not ready"
         )
@@ -112,12 +142,8 @@ def run_strategy_paper_trade(
     )
 
     # --------------------------------
-    # Determine existing holding
+    # Existing paper position
     # --------------------------------
-
-    from app.services.trading_service import (
-        account,
-    )
 
     holding = account["holdings"].get(
         symbol
@@ -138,8 +164,8 @@ def run_strategy_paper_trade(
         if current_quantity > 0:
 
             return {
-                "strategy_id": strategy_id,
-                "strategy": strategy["name"],
+                "strategy_id": strategy.id,
+                "strategy": strategy.name,
                 "symbol": symbol,
                 "signal": "BUY",
                 "action": "HOLD",
@@ -163,6 +189,7 @@ def run_strategy_paper_trade(
         )
 
         if quantity <= 0:
+
             raise ValueError(
                 "Capital is insufficient "
                 "to buy one share"
@@ -176,8 +203,8 @@ def run_strategy_paper_trade(
         )
 
         return {
-            "strategy_id": strategy_id,
-            "strategy": strategy["name"],
+            "strategy_id": strategy.id,
+            "strategy": strategy.name,
             "symbol": symbol,
             "signal": "BUY",
             "action": "BUY",
@@ -203,8 +230,8 @@ def run_strategy_paper_trade(
         if current_quantity <= 0:
 
             return {
-                "strategy_id": strategy_id,
-                "strategy": strategy["name"],
+                "strategy_id": strategy.id,
+                "strategy": strategy.name,
                 "symbol": symbol,
                 "signal": "SELL",
                 "action": "HOLD",
@@ -231,8 +258,8 @@ def run_strategy_paper_trade(
         )
 
         return {
-            "strategy_id": strategy_id,
-            "strategy": strategy["name"],
+            "strategy_id": strategy.id,
+            "strategy": strategy.name,
             "symbol": symbol,
             "signal": "SELL",
             "action": "SELL",
@@ -254,8 +281,8 @@ def run_strategy_paper_trade(
     # --------------------------------
 
     return {
-        "strategy_id": strategy_id,
-        "strategy": strategy["name"],
+        "strategy_id": strategy.id,
+        "strategy": strategy.name,
         "symbol": symbol,
         "signal": "HOLD",
         "action": "HOLD",

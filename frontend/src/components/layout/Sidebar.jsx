@@ -8,8 +8,10 @@ import {
   BarChart3,
   FileText,
   Settings,
+  LogOut,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+
+import { NavLink, useNavigate } from "react-router-dom";
 
 import logo from "@/assets/logo.svg";
 
@@ -49,17 +51,16 @@ const menuItems = [
     path: "/backtest",
     icon: BarChart3,
   },
-
- {
-  name: "Paper Trading",
-  path: "/trading",
-  icon: ChartCandlestick,
-},
-{
-  name: "Performance Lab",
-  path: "/trading-analytics",
-  icon: BarChart3,
-},
+  {
+    name: "Paper Trading",
+    path: "/trading",
+    icon: ChartCandlestick,
+  },
+  {
+    name: "Performance Lab",
+    path: "/trading-analytics",
+    icon: BarChart3,
+  },
   {
     name: "Reports",
     path: "/reports",
@@ -73,6 +74,21 @@ const menuItems = [
 ];
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+
+  const user = JSON.parse(
+    localStorage.getItem("user") || "null"
+  );
+
+  function handleLogout() {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("user");
+
+    navigate("/login", {
+      replace: true,
+    });
+  }
+
   return (
     <aside className="w-72 h-screen bg-slate-950 border-r border-slate-800 flex flex-col">
 
@@ -100,45 +116,65 @@ export default function Sidebar() {
 
       {/* Menu */}
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 overflow-y-auto p-4 space-y-2">
 
         {menuItems.map((item) => {
-
           const Icon = item.icon;
 
           return (
-
             <NavLink
               key={item.name}
               to={item.path}
+              end={item.path === "/"}
               className={({ isActive }) =>
-                `flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300
-                ${
+                `flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 ${
                   isActive
                     ? "bg-blue-600 text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 }`
               }
             >
-
               <Icon size={20} />
 
               <span className="font-medium">
                 {item.name}
               </span>
-
             </NavLink>
-
           );
         })}
 
       </nav>
 
-      {/* Footer */}
+      {/* User + Logout */}
 
-      <div className="p-5 border-t border-slate-800">
+      <div className="p-4 border-t border-slate-800">
 
-        <p className="text-xs text-slate-500 text-center">
+        {user && (
+          <div className="mb-3 px-3">
+
+            <p className="text-sm font-semibold text-white truncate">
+              {user.username || "User"}
+            </p>
+
+            <p className="text-xs text-slate-500 truncate">
+              {user.email || ""}
+            </p>
+
+          </div>
+        )}
+
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition"
+        >
+          <LogOut size={20} />
+
+          <span className="font-medium">
+            Logout
+          </span>
+        </button>
+
+        <p className="text-xs text-slate-500 text-center mt-4">
           QuantNova v1.0.0
         </p>
 

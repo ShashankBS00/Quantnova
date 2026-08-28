@@ -33,6 +33,7 @@ export default function Login() {
         email: email.trim(),
         password,
       });
+      console.log("LOGIN RESPONSE:", data);
 
       // Save authentication information
       localStorage.setItem(

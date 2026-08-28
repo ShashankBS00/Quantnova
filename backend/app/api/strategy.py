@@ -1,5 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.database.database import get_db
+from app.database.models import User
 
 from app.services.strategy_service import (
     create_strategy,
@@ -8,6 +12,8 @@ from app.services.strategy_service import (
     delete_strategy,
 )
 
+from app.utils.auth_dependency import get_current_user
+
 
 router = APIRouter(
     prefix="/strategy",
@@ -15,18 +21,12 @@ router = APIRouter(
 )
 
 
-# --------------------------------
-# Request Model
-# --------------------------------
-
 class StrategyRequest(BaseModel):
     name: str
     symbol: str
     strategy_type: str
     fast_period: int
     slow_period: int
-
-    # Asset configuration
     asset_type: str = "STOCK"
     timeframe: str = "1d"
 
@@ -38,11 +38,15 @@ class StrategyRequest(BaseModel):
 @router.post("/")
 def add_strategy(
     request: StrategyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     try:
 
         return create_strategy(
+            db=db,
+            user_id=current_user.id,
             name=request.name,
             symbol=request.symbol,
             strategy_type=request.strategy_type,
@@ -61,13 +65,19 @@ def add_strategy(
 
 
 # --------------------------------
-# Get All Strategies
+# Get User Strategies
 # --------------------------------
 
 @router.get("/")
-def list_strategies():
+def list_strategies(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
 
-    return get_strategies()
+    return get_strategies(
+        db=db,
+        user_id=current_user.id,
+    )
 
 
 # --------------------------------
@@ -77,12 +87,16 @@ def list_strategies():
 @router.get("/{strategy_id}")
 def read_strategy(
     strategy_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     try:
 
         return get_strategy(
-            strategy_id
+            db=db,
+            user_id=current_user.id,
+            strategy_id=strategy_id,
         )
 
     except ValueError as error:
@@ -100,12 +114,16 @@ def read_strategy(
 @router.delete("/{strategy_id}")
 def remove_strategy(
     strategy_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     try:
 
         return delete_strategy(
-            strategy_id
+            db=db,
+            user_id=current_user.id,
+            strategy_id=strategy_id,
         )
 
     except ValueError as error:
