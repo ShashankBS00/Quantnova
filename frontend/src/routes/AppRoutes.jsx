@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 
 import Layout from "@/components/layout/Layout";
 
+import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -27,6 +28,11 @@ export default function AppRoutes() {
       {/* ========================= */}
 
       <Route
+        path="/"
+        element={<Landing />}
+      />
+
+      <Route
         path="/login"
         element={<Login />}
       />
@@ -42,7 +48,7 @@ export default function AppRoutes() {
       {/* ========================= */}
 
       <Route
-        path="/"
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <Layout>

@@ -47,7 +47,7 @@ export default function Login() {
       );
 
       // Go to dashboard
-      navigate("/");
+      navigate("/dashboard");
 
     } catch (error) {
       console.error(

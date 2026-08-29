@@ -18,7 +18,7 @@ import logo from "@/assets/logo.svg";
 const menuItems = [
   {
     name: "Dashboard",
-    path: "/",
+    path: "/dashboard",
     icon: LayoutDashboard,
   },
   {
@@ -125,7 +125,7 @@ export default function Sidebar() {
             <NavLink
               key={item.name}
               to={item.path}
-              end={item.path === "/"}
+              end={true}
               className={({ isActive }) =>
                 `flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 ${
                   isActive
