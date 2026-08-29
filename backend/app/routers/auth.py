@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 
+from app.database.models import TradingAccount
+
 from app.services.auth_service import (
     register_user,
     authenticate_user,
@@ -23,6 +25,10 @@ router = APIRouter(
 )
 
 
+# ==========================================
+# Request Models
+# ==========================================
+
 class RegisterRequest(BaseModel):
     username: str
     email: EmailStr
@@ -34,6 +40,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+# ==========================================
+# Register
+# ==========================================
+
 @router.post("/register")
 def register(
     request: RegisterRequest,
@@ -42,6 +52,10 @@ def register(
 
     try:
 
+        # ------------------------------
+        # Create user
+        # ------------------------------
+
         user = register_user(
             db=db,
             username=request.username,
@@ -49,12 +63,48 @@ def register(
             password=request.password,
         )
 
+        # ------------------------------
+        # Create paper trading account
+        # ------------------------------
+
+        trading_account = TradingAccount(
+            user_id=user.id,
+
+            initial_cash=100000.00,
+
+            cash=100000.00,
+
+            realized_pnl=0.00,
+
+            winning_trades=0,
+
+            losing_trades=0,
+        )
+
+        db.add(trading_account)
+        db.commit()
+        db.refresh(trading_account)
+
+        # ------------------------------
+        # Return response
+        # ------------------------------
+
         return {
             "message": "Registration successful",
+
             "user": {
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
+                "role": user.role,
+            },
+
+            "trading_account": {
+                "initial_cash": 100000.00,
+                "cash": 100000.00,
+                "realized_pnl": 0.00,
+                "winning_trades": 0,
+                "losing_trades": 0,
             },
         }
 
@@ -65,6 +115,10 @@ def register(
             detail=str(error),
         )
 
+
+# ==========================================
+# Login
+# ==========================================
 
 @router.post("/login")
 def login(
@@ -86,12 +140,16 @@ def login(
 
         return {
             "message": "Login successful",
+
             "access_token": token,
+
             "token_type": "bearer",
+
             "user": {
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
+                "role": user.role,
             },
         }
 

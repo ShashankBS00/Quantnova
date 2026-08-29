@@ -1,298 +1,272 @@
-import yfinance as yf
-import pandas as pd
-
 from sqlalchemy.orm import Session
 
-from app.services.strategy_service import get_strategy
+from app.database.models import (
+    Strategy,
+    TradingAccount,
+    Holding,
+)
 
-from app.services.strategies.sma_ema import (
-    calculate_sma_ema,
-    get_sma_ema_signal,
+from app.services.market_service import (
+    get_historical_data,
+)
+
+from app.services.strategy_engine import (
+    generate_signal,
 )
 
 from app.services.trading_service import (
     place_paper_order,
-    account,
 )
 
+
+# ==========================================
+# Run Saved Strategy
+# ==========================================
 
 def run_strategy_paper_trade(
     db: Session,
     user_id: int,
     strategy_id: int,
-    capital_per_trade: float = 100000.0,
 ):
 
-    # --------------------------------
-    # Get user's strategy
-    # --------------------------------
+    # --------------------------------------
+    # Get strategy belonging to this user
+    # --------------------------------------
 
-    strategy = get_strategy(
-        db=db,
-        user_id=user_id,
-        strategy_id=strategy_id,
+    strategy = (
+        db.query(Strategy)
+        .filter(
+            Strategy.id == strategy_id,
+            Strategy.user_id == user_id,
+        )
+        .first()
     )
+
+    if strategy is None:
+        raise ValueError(
+            "Strategy not found or does not belong to this user"
+        )
+
+    # --------------------------------------
+    # Get market data
+    # --------------------------------------
 
     symbol = strategy.symbol
-    strategy_type = strategy.strategy_type
 
-    fast_period = strategy.fast_period
-    slow_period = strategy.slow_period
+    df = get_historical_data(symbol)
 
-    # --------------------------------
-    # Supported strategy
-    # --------------------------------
-
-    if strategy_type != "SMA_EMA_TREND":
-
+    if df is None or df.empty:
         raise ValueError(
-            "Paper trading currently supports "
-            "SMA_EMA_TREND only"
+            f"No market data available for {symbol}"
         )
 
-    # --------------------------------
-    # Download market data
-    # --------------------------------
+    # --------------------------------------
+    # Generate strategy result
+    # --------------------------------------
 
-    history = yf.download(
-        symbol,
-        period="3mo",
-        interval="1d",
-        auto_adjust=False,
-        progress=False,
+    strategy_result = generate_signal(
+        df=df,
+        strategy_type=strategy.strategy_type,
+        fast_period=strategy.fast_period,
+        slow_period=strategy.slow_period,
     )
 
-    if history.empty:
+    # --------------------------------------
+    # Extract values
+    # --------------------------------------
 
-        raise ValueError(
-            f"No market data found for {symbol}"
-        )
+    signal = strategy_result["signal"].upper()
 
-    # --------------------------------
-    # Handle yfinance MultiIndex
-    # --------------------------------
-
-    if isinstance(
-        history.columns,
-        pd.MultiIndex,
-    ):
-
-        history.columns = (
-            history.columns
-            .get_level_values(0)
-        )
-
-    # --------------------------------
-    # Validate Close
-    # --------------------------------
-
-    if "Close" not in history.columns:
-
-        raise ValueError(
-            "Market data does not contain Close price"
-        )
-
-    history = history.dropna(
-        subset=["Close"]
+    price = float(
+        strategy_result["price"]
     )
 
-    if len(history) < slow_period:
-
-        raise ValueError(
-            "Not enough market data for this strategy"
-        )
-
-    # --------------------------------
-    # Calculate indicators
-    # --------------------------------
-
-    history = calculate_sma_ema(
-        history=history,
-        fast_period=fast_period,
-        slow_period=slow_period,
+    fast_ema = float(
+        strategy_result["fast_ema"]
     )
 
-    # --------------------------------
-    # Latest data
-    # --------------------------------
-
-    latest = history.iloc[-1]
-
-    close = float(latest["Close"])
-    fast_ema = float(latest["fast_ema"])
-    slow_sma = float(latest["slow_sma"])
-
-    if (
-        pd.isna(fast_ema)
-        or pd.isna(slow_sma)
-    ):
-
-        raise ValueError(
-            "Indicators are not ready"
-        )
-
-    # --------------------------------
-    # Generate signal
-    # --------------------------------
-
-    signal = get_sma_ema_signal(
-        close=close,
-        fast_ema=fast_ema,
-        slow_sma=slow_sma,
+    slow_sma = float(
+        strategy_result["slow_sma"]
     )
 
-    # --------------------------------
-    # Existing paper position
-    # --------------------------------
+    # --------------------------------------
+    # Result
+    # --------------------------------------
 
-    holding = account["holdings"].get(
-        symbol
-    )
-
-    current_quantity = (
-        holding["quantity"]
-        if holding
-        else 0
-    )
-
-    # --------------------------------
-    # BUY
-    # --------------------------------
-
-    if signal == "BUY":
-
-        if current_quantity > 0:
-
-            return {
-                "strategy_id": strategy.id,
-                "strategy": strategy.name,
-                "symbol": symbol,
-                "signal": "BUY",
-                "action": "HOLD",
-                "message": (
-                    "BUY signal detected, "
-                    "but position already exists"
-                ),
-                "price": round(close, 2),
-                "fast_ema": round(
-                    fast_ema,
-                    2,
-                ),
-                "slow_sma": round(
-                    slow_sma,
-                    2,
-                ),
-            }
-
-        quantity = int(
-            capital_per_trade // close
-        )
-
-        if quantity <= 0:
-
-            raise ValueError(
-                "Capital is insufficient "
-                "to buy one share"
-            )
-
-        order = place_paper_order(
-            symbol=symbol,
-            quantity=quantity,
-            price=close,
-            side="BUY",
-        )
-
-        return {
-            "strategy_id": strategy.id,
-            "strategy": strategy.name,
-            "symbol": symbol,
-            "signal": "BUY",
-            "action": "BUY",
-            "price": round(close, 2),
-            "fast_ema": round(
-                fast_ema,
-                2,
-            ),
-            "slow_sma": round(
-                slow_sma,
-                2,
-            ),
-            "quantity": quantity,
-            "order": order,
-        }
-
-    # --------------------------------
-    # SELL
-    # --------------------------------
-
-    if signal == "SELL":
-
-        if current_quantity <= 0:
-
-            return {
-                "strategy_id": strategy.id,
-                "strategy": strategy.name,
-                "symbol": symbol,
-                "signal": "SELL",
-                "action": "HOLD",
-                "message": (
-                    "SELL signal detected, "
-                    "but no position exists"
-                ),
-                "price": round(close, 2),
-                "fast_ema": round(
-                    fast_ema,
-                    2,
-                ),
-                "slow_sma": round(
-                    slow_sma,
-                    2,
-                ),
-            }
-
-        order = place_paper_order(
-            symbol=symbol,
-            quantity=current_quantity,
-            price=close,
-            side="SELL",
-        )
-
-        return {
-            "strategy_id": strategy.id,
-            "strategy": strategy.name,
-            "symbol": symbol,
-            "signal": "SELL",
-            "action": "SELL",
-            "price": round(close, 2),
-            "fast_ema": round(
-                fast_ema,
-                2,
-            ),
-            "slow_sma": round(
-                slow_sma,
-                2,
-            ),
-            "quantity": current_quantity,
-            "order": order,
-        }
-
-    # --------------------------------
-    # HOLD
-    # --------------------------------
-
-    return {
+    result = {
         "strategy_id": strategy.id,
         "strategy": strategy.name,
         "symbol": symbol,
-        "signal": "HOLD",
+
+        "signal": signal,
         "action": "HOLD",
-        "price": round(close, 2),
-        "fast_ema": round(
-            fast_ema,
-            2,
-        ),
-        "slow_sma": round(
-            slow_sma,
-            2,
-        ),
+
+        "message": "",
+
+        "price": round(price, 2),
+
+        "fast_ema": round(fast_ema, 2),
+        "slow_sma": round(slow_sma, 2),
     }
+
+    # ======================================
+    # BUY
+    # ======================================
+
+    if signal == "BUY":
+
+        # ----------------------------------
+        # Get trading account
+        # ----------------------------------
+
+        account = (
+            db.query(TradingAccount)
+            .filter(
+                TradingAccount.user_id == user_id
+            )
+            .first()
+        )
+
+        if account is None:
+
+            result["message"] = (
+                "BUY signal detected, "
+                "but no trading account exists"
+            )
+
+            return result
+
+        # ----------------------------------
+        # Check existing holding
+        # ----------------------------------
+
+        holding = (
+            db.query(Holding)
+            .filter(
+                Holding.account_id == account.id,
+                Holding.symbol == symbol,
+            )
+            .first()
+        )
+
+        if holding and holding.quantity > 0:
+
+            result["action"] = "HOLD"
+
+            result["message"] = (
+                "BUY signal detected, "
+                "but position already exists"
+            )
+
+            return result
+
+        # ----------------------------------
+        # Execute BUY
+        # ----------------------------------
+
+        order = place_paper_order(
+            db=db,
+            user_id=user_id,
+            symbol=symbol,
+            quantity=1,
+            price=price,
+            side="BUY",
+        )
+
+        result["action"] = "BUY"
+
+        result["message"] = (
+            "BUY signal detected and "
+            "paper order executed"
+        )
+
+        result["order"] = order
+
+        return result
+
+    # ======================================
+    # SELL
+    # ======================================
+
+    if signal == "SELL":
+
+        # ----------------------------------
+        # Get trading account
+        # ----------------------------------
+
+        account = (
+            db.query(TradingAccount)
+            .filter(
+                TradingAccount.user_id == user_id
+            )
+            .first()
+        )
+
+        if account is None:
+
+            result["message"] = (
+                "SELL signal detected, "
+                "but no trading account exists"
+            )
+
+            return result
+
+        # ----------------------------------
+        # Get holding
+        # ----------------------------------
+
+        holding = (
+            db.query(Holding)
+            .filter(
+                Holding.account_id == account.id,
+                Holding.symbol == symbol,
+            )
+            .first()
+        )
+
+        if holding is None or holding.quantity <= 0:
+
+            result["message"] = (
+                "SELL signal detected, "
+                "but no position exists"
+            )
+
+            return result
+
+        # ----------------------------------
+        # Sell complete position
+        # ----------------------------------
+
+        quantity = holding.quantity
+
+        order = place_paper_order(
+            db=db,
+            user_id=user_id,
+            symbol=symbol,
+            quantity=quantity,
+            price=price,
+            side="SELL",
+        )
+
+        result["action"] = "SELL"
+
+        result["message"] = (
+            "SELL signal detected and "
+            "paper order executed"
+        )
+
+        result["order"] = order
+
+        return result
+
+    # ======================================
+    # HOLD
+    # ======================================
+
+    result["action"] = "HOLD"
+
+    result["message"] = (
+        f"{signal} signal detected"
+    )
+
+    return result

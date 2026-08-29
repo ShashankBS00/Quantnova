@@ -1,9 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Depends,
+)
+
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.database.models import User
-from app.utils.auth_dependency import get_current_user
+
+from app.utils.auth_dependency import (
+    get_current_user,
+)
 
 from app.services.paper_trading_service import (
     run_strategy_paper_trade,
@@ -15,10 +23,6 @@ router = APIRouter(
     tags=["Paper Trading"],
 )
 
-
-# --------------------------------
-# Run Strategy Paper Trade
-# --------------------------------
 
 @router.post("/run/{strategy_id}")
 def run_paper_trade(

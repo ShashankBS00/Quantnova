@@ -6,6 +6,9 @@ from sqlalchemy import (
     String,
     DateTime,
     ForeignKey,
+    Numeric,
+    CheckConstraint,
+    UniqueConstraint,
 )
 
 from sqlalchemy.orm import relationship
@@ -51,10 +54,24 @@ class User(Base):
         nullable=False,
     )
 
+    role = Column(
+        String(20),
+        nullable=False,
+        default="USER",
+    )
+
     # User → Strategies
     strategies = relationship(
         "Strategy",
         back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    # User → Trading Account
+    trading_account = relationship(
+        "TradingAccount",
+        back_populates="user",
+        uselist=False,
         cascade="all, delete-orphan",
     )
 
@@ -116,10 +133,6 @@ class Strategy(Base):
         nullable=False,
     )
 
-    # ======================================
-    # User relationship
-    # ======================================
-
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
@@ -130,4 +143,395 @@ class Strategy(Base):
     user = relationship(
         "User",
         back_populates="strategies",
+    )
+
+    # Strategy → Paper Trades
+    paper_trades = relationship(
+        "PaperTrade",
+        back_populates="strategy",
+    )
+
+
+# ==========================================
+# Trading Account
+# ==========================================
+
+class TradingAccount(Base):
+    __tablename__ = "trading_accounts"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    initial_cash = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=100000.00,
+    )
+
+    cash = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=100000.00,
+    )
+
+    realized_pnl = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=0.00,
+    )
+
+    winning_trades = Column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    losing_trades = Column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    user = relationship(
+        "User",
+        back_populates="trading_account",
+    )
+
+    # Account → Holdings
+    holdings = relationship(
+        "Holding",
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
+
+    # Account → Orders
+    orders = relationship(
+        "Order",
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
+
+    # Account → Paper Trades
+    paper_trades = relationship(
+        "PaperTrade",
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
+
+
+# ==========================================
+# Holding
+# ==========================================
+
+class Holding(Base):
+    __tablename__ = "holdings"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    account_id = Column(
+        Integer,
+        ForeignKey("trading_accounts.id"),
+        nullable=False,
+        index=True,
+    )
+
+    symbol = Column(
+        String(30),
+        nullable=False,
+    )
+
+    quantity = Column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    average_price = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=0.00,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    account = relationship(
+        "TradingAccount",
+        back_populates="holdings",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id",
+            "symbol",
+            name="unique_account_symbol",
+        ),
+        CheckConstraint(
+            "quantity >= 0",
+            name="positive_holding_quantity",
+        ),
+        CheckConstraint(
+            "average_price >= 0",
+            name="positive_average_price",
+        ),
+    )
+
+
+# ==========================================
+# Order
+# ==========================================
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    account_id = Column(
+        Integer,
+        ForeignKey("trading_accounts.id"),
+        nullable=False,
+        index=True,
+    )
+
+    symbol = Column(
+        String(30),
+        nullable=False,
+    )
+
+    side = Column(
+        String(10),
+        nullable=False,
+    )
+
+    quantity = Column(
+        Integer,
+        nullable=False,
+    )
+
+    price = Column(
+        Numeric(15, 2),
+        nullable=False,
+    )
+
+    total_amount = Column(
+        Numeric(15, 2),
+        nullable=False,
+    )
+
+    stop_loss = Column(
+        Numeric(15, 2),
+        nullable=True,
+    )
+
+    target = Column(
+        Numeric(15, 2),
+        nullable=True,
+    )
+
+    status = Column(
+        String(20),
+        nullable=False,
+        default="FILLED",
+    )
+
+    realized_pnl = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=0.00,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+    account = relationship(
+    "TradingAccount",
+    back_populates="orders",
+    )
+   
+
+    __table_args__ = (
+        CheckConstraint(
+            "side IN ('BUY', 'SELL')",
+            name="valid_order_side",
+        ),
+        CheckConstraint(
+            "quantity > 0",
+            name="positive_order_quantity",
+        ),
+        CheckConstraint(
+            "price > 0",
+            name="positive_order_price",
+        ),
+        CheckConstraint(
+            "total_amount > 0",
+            name="positive_total_amount",
+        ),
+        CheckConstraint(
+            "stop_loss IS NULL OR stop_loss > 0",
+            name="valid_stop_loss",
+        ),
+        CheckConstraint(
+            "target IS NULL OR target > 0",
+            name="valid_target",
+        ),
+    )
+
+
+# ==========================================
+# Paper Trade
+# ==========================================
+
+class PaperTrade(Base):
+    __tablename__ = "paper_trades"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    account_id = Column(
+        Integer,
+        ForeignKey("trading_accounts.id"),
+        nullable=False,
+        index=True,
+    )
+
+    strategy_id = Column(
+        Integer,
+        ForeignKey("strategies.id"),
+        nullable=False,
+        index=True,
+    )
+
+    symbol = Column(
+        String(30),
+        nullable=False,
+    )
+
+    side = Column(
+        String(10),
+        nullable=False,
+    )
+
+    quantity = Column(
+        Integer,
+        nullable=False,
+    )
+
+    entry_price = Column(
+        Numeric(15, 2),
+        nullable=False,
+    )
+
+    exit_price = Column(
+        Numeric(15, 2),
+        nullable=True,
+    )
+
+    stop_loss = Column(
+        Numeric(15, 2),
+        nullable=True,
+    )
+
+    target = Column(
+        Numeric(15, 2),
+        nullable=True,
+    )
+
+    status = Column(
+        String(20),
+        nullable=False,
+        default="OPEN",
+    )
+
+    realized_pnl = Column(
+        Numeric(15, 2),
+        nullable=False,
+        default=0.00,
+    )
+
+    opened_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    closed_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    account = relationship(
+        "TradingAccount",
+        back_populates="paper_trades",
+    )
+
+    strategy = relationship(
+        "Strategy",
+        back_populates="paper_trades",
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "side IN ('BUY', 'SELL')",
+            name="valid_paper_trade_side",
+        ),
+        CheckConstraint(
+            "quantity > 0",
+            name="positive_paper_trade_quantity",
+        ),
+        CheckConstraint(
+            "entry_price > 0",
+            name="positive_entry_price",
+        ),
+        CheckConstraint(
+            "exit_price IS NULL OR exit_price > 0",
+            name="valid_exit_price",
+        ),
+        CheckConstraint(
+            "stop_loss IS NULL OR stop_loss > 0",
+            name="valid_paper_stop_loss",
+        ),
+        CheckConstraint(
+            "target IS NULL OR target > 0",
+            name="valid_paper_target",
+        ),
     )
