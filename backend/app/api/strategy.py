@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from typing import Optional, Dict, Any
 
 from app.database.database import get_db
 from app.database.models import User
@@ -21,19 +22,69 @@ router = APIRouter(
 )
 
 
+# ==========================================
+# Strategy Request
+# ==========================================
+
 class StrategyRequest(BaseModel):
-    name: str
-    symbol: str
-    strategy_type: str
-    fast_period: int
-    slow_period: int
+
+    # --------------------------------------
+    # Basic Information
+    # --------------------------------------
+
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+    )
+
+    symbol: str = Field(
+        ...,
+        min_length=1,
+        max_length=30,
+    )
+
     asset_type: str = "STOCK"
+
+    trading_style: str = "INTRADAY"
+
     timeframe: str = "1d"
 
+    # --------------------------------------
+    # Strategy
+    # --------------------------------------
 
-# --------------------------------
+    strategy_type: str
+
+    # Strategy-specific settings
+    #
+    # SMA:
+    # {
+    #   "fast_period": 20,
+    #   "slow_period": 50
+    # }
+    #
+    # RSI:
+    # {
+    #   "period": 14,
+    #   "oversold": 30,
+    #   "overbought": 70
+    # }
+
+    parameters: Optional[Dict[str, Any]] = None
+
+    # --------------------------------------
+    # Risk Management
+    # --------------------------------------
+
+    stop_loss_percent: Optional[float] = None
+
+    risk_reward_ratio: Optional[float] = None
+
+
+# ==========================================
 # Create Strategy
-# --------------------------------
+# ==========================================
 
 @router.post("/")
 def add_strategy(
@@ -47,13 +98,20 @@ def add_strategy(
         return create_strategy(
             db=db,
             user_id=current_user.id,
+
             name=request.name,
             symbol=request.symbol,
-            strategy_type=request.strategy_type,
-            fast_period=request.fast_period,
-            slow_period=request.slow_period,
+
             asset_type=request.asset_type,
+            trading_style=request.trading_style,
             timeframe=request.timeframe,
+
+            strategy_type=request.strategy_type,
+
+            parameters=request.parameters,
+
+            stop_loss_percent=request.stop_loss_percent,
+            risk_reward_ratio=request.risk_reward_ratio,
         )
 
     except ValueError as error:
@@ -64,9 +122,9 @@ def add_strategy(
         )
 
 
-# --------------------------------
+# ==========================================
 # Get User Strategies
-# --------------------------------
+# ==========================================
 
 @router.get("/")
 def list_strategies(
@@ -80,9 +138,9 @@ def list_strategies(
     )
 
 
-# --------------------------------
+# ==========================================
 # Get Single Strategy
-# --------------------------------
+# ==========================================
 
 @router.get("/{strategy_id}")
 def read_strategy(
@@ -107,9 +165,9 @@ def read_strategy(
         )
 
 
-# --------------------------------
+# ==========================================
 # Delete Strategy
-# --------------------------------
+# ==========================================
 
 @router.delete("/{strategy_id}")
 def remove_strategy(

@@ -29,9 +29,9 @@ def run_strategy_paper_trade(
     strategy_id: int,
 ):
 
-    # --------------------------------------
-    # Get strategy belonging to this user
-    # --------------------------------------
+    # ======================================
+    # 1. Get Strategy
+    # ======================================
 
     strategy = (
         db.query(Strategy)
@@ -47,11 +47,15 @@ def run_strategy_paper_trade(
             "Strategy not found or does not belong to this user"
         )
 
-    # --------------------------------------
-    # Get market data
-    # --------------------------------------
+    # ======================================
+    # 2. Get Market Data
+    # ======================================
 
-    symbol = strategy.symbol
+    symbol = (
+        strategy.symbol
+        .strip()
+        .upper()
+    )
 
     df = get_historical_data(symbol)
 
@@ -60,74 +64,288 @@ def run_strategy_paper_trade(
             f"No market data available for {symbol}"
         )
 
-    # --------------------------------------
-    # Generate strategy result
-    # --------------------------------------
+    # ======================================
+    # 3. Get Parameters
+    # ======================================
+
+    parameters = strategy.parameters or {}
+
+    if not isinstance(parameters, dict):
+        raise ValueError(
+            "Invalid strategy parameters"
+        )
+
+    # ======================================
+    # 4. Generate Signal
+    # ======================================
 
     strategy_result = generate_signal(
         df=df,
         strategy_type=strategy.strategy_type,
-        fast_period=strategy.fast_period,
-        slow_period=strategy.slow_period,
+        parameters=parameters,
     )
 
-    # --------------------------------------
-    # Extract values
-    # --------------------------------------
+    if not isinstance(
+        strategy_result,
+        dict,
+    ):
+        raise ValueError(
+            "Strategy engine returned invalid result"
+        )
 
-    signal = strategy_result["signal"].upper()
+    # ======================================
+    # 5. Extract Signal
+    # ======================================
 
-    price = float(
-        strategy_result["price"]
+    signal = str(
+        strategy_result.get(
+            "signal",
+            "HOLD",
+        )
+    ).upper()
+
+    # ======================================
+    # 6. Extract Price
+    # ======================================
+
+    price = strategy_result.get(
+        "price"
     )
 
-    fast_ema = float(
-        strategy_result["fast_ema"]
-    )
+    if price is None:
 
-    slow_sma = float(
-        strategy_result["slow_sma"]
-    )
+        price = float(
+            df["Close"].iloc[-1]
+        )
 
-    # --------------------------------------
-    # Result
-    # --------------------------------------
+    price = float(price)
+
+    if price <= 0:
+        raise ValueError(
+            "Invalid market price"
+        )
+
+    # ======================================
+    # 7. Risk Settings
+    # ======================================
+
+    stop_loss_percent = None
+
+    if strategy.stop_loss_percent is not None:
+
+        stop_loss_percent = float(
+            strategy.stop_loss_percent
+        )
+
+    risk_reward_ratio = None
+
+    if strategy.risk_reward_ratio is not None:
+
+        risk_reward_ratio = float(
+            strategy.risk_reward_ratio
+        )
+
+    # ======================================
+    # 8. Result
+    # ======================================
 
     result = {
-        "strategy_id": strategy.id,
-        "strategy": strategy.name,
-        "symbol": symbol,
 
-        "signal": signal,
-        "action": "HOLD",
+        "strategy_id":
+            strategy.id,
 
-        "message": "",
+        "strategy":
+            strategy.name,
 
-        "price": round(price, 2),
+        "symbol":
+            symbol,
 
-        "fast_ema": round(fast_ema, 2),
-        "slow_sma": round(slow_sma, 2),
+        "strategy_type":
+            strategy.strategy_type,
+
+        "signal":
+            signal,
+
+        "action":
+            "HOLD",
+
+        "message":
+            "",
+
+        "price":
+            round(price, 2),
+
+        "parameters":
+            parameters,
+
+        "stop_loss_percent":
+            stop_loss_percent,
+
+        "risk_reward_ratio":
+            risk_reward_ratio,
+
+        "indicators":
+            {},
     }
 
     # ======================================
-    # BUY
+    # 9. Add Indicator Values
+    # ======================================
+
+    indicator_keys = [
+
+        "fast_sma",
+
+        "slow_sma",
+
+        "fast_ema",
+
+        "slow_ema",
+
+        "rsi",
+
+        "macd",
+
+        "macd_signal",
+
+        "bollinger_middle",
+
+        "bollinger_upper",
+
+        "bollinger_lower",
+    ]
+
+    for key in indicator_keys:
+
+        if key in strategy_result:
+
+            value = strategy_result[key]
+
+            if value is not None:
+
+                result["indicators"][key] = (
+                    round(
+                        float(value),
+                        4,
+                    )
+                )
+
+    # ======================================
+    # 10. Calculate Stop Loss & Target
+    # ======================================
+
+    stop_loss_price = None
+    target_price = None
+
+    if (
+        stop_loss_percent is not None
+        and stop_loss_percent > 0
+    ):
+
+        # ----------------------------------
+        # BUY
+        # ----------------------------------
+
+        if signal == "BUY":
+
+            stop_loss_price = (
+                price *
+                (
+                    1 -
+                    stop_loss_percent / 100
+                )
+            )
+
+            if (
+                risk_reward_ratio is not None
+                and risk_reward_ratio > 0
+            ):
+
+                risk = (
+                    price -
+                    stop_loss_price
+                )
+
+                target_price = (
+                    price +
+                    (
+                        risk *
+                        risk_reward_ratio
+                    )
+                )
+
+        # ----------------------------------
+        # SELL
+        # ----------------------------------
+
+        elif signal == "SELL":
+
+            stop_loss_price = (
+                price *
+                (
+                    1 +
+                    stop_loss_percent / 100
+                )
+            )
+
+            if (
+                risk_reward_ratio is not None
+                and risk_reward_ratio > 0
+            ):
+
+                risk = (
+                    stop_loss_price -
+                    price
+                )
+
+                target_price = (
+                    price -
+                    (
+                        risk *
+                        risk_reward_ratio
+                    )
+                )
+
+    if stop_loss_price is not None:
+
+        result["stop_loss"] = round(
+            stop_loss_price,
+            2,
+        )
+
+    else:
+
+        result["stop_loss"] = None
+
+    if target_price is not None:
+
+        result["target"] = round(
+            target_price,
+            2,
+        )
+
+    else:
+
+        result["target"] = None
+
+    # ======================================
+    # 11. BUY
     # ======================================
 
     if signal == "BUY":
 
-        # ----------------------------------
-        # Get trading account
-        # ----------------------------------
-
         account = (
             db.query(TradingAccount)
             .filter(
-                TradingAccount.user_id == user_id
+                TradingAccount.user_id ==
+                user_id
             )
             .first()
         )
 
         if account is None:
+
+        
 
             result["message"] = (
                 "BUY signal detected, "
@@ -137,19 +355,26 @@ def run_strategy_paper_trade(
             return result
 
         # ----------------------------------
-        # Check existing holding
+        # Existing Position
         # ----------------------------------
 
         holding = (
             db.query(Holding)
             .filter(
-                Holding.account_id == account.id,
-                Holding.symbol == symbol,
+                Holding.account_id ==
+                account.id,
+
+                Holding.symbol ==
+                symbol,
             )
             .first()
         )
 
-        if holding and holding.quantity > 0:
+        if (
+            holding is not None
+            and
+            holding.quantity > 0
+        ):
 
             result["action"] = "HOLD"
 
@@ -165,12 +390,22 @@ def run_strategy_paper_trade(
         # ----------------------------------
 
         order = place_paper_order(
+
             db=db,
+
             user_id=user_id,
+
             symbol=symbol,
+
             quantity=1,
+
             price=price,
+
             side="BUY",
+
+            stop_loss=stop_loss_price,
+
+            target=target_price,
         )
 
         result["action"] = "BUY"
@@ -185,19 +420,16 @@ def run_strategy_paper_trade(
         return result
 
     # ======================================
-    # SELL
+    # 12. SELL
     # ======================================
 
     if signal == "SELL":
 
-        # ----------------------------------
-        # Get trading account
-        # ----------------------------------
-
         account = (
             db.query(TradingAccount)
             .filter(
-                TradingAccount.user_id == user_id
+                TradingAccount.user_id ==
+                user_id
             )
             .first()
         )
@@ -212,19 +444,26 @@ def run_strategy_paper_trade(
             return result
 
         # ----------------------------------
-        # Get holding
+        # Get Holding
         # ----------------------------------
 
         holding = (
             db.query(Holding)
             .filter(
-                Holding.account_id == account.id,
-                Holding.symbol == symbol,
+                Holding.account_id ==
+                account.id,
+
+                Holding.symbol ==
+                symbol,
             )
             .first()
         )
 
-        if holding is None or holding.quantity <= 0:
+        if (
+            holding is None
+            or
+            holding.quantity <= 0
+        ):
 
             result["message"] = (
                 "SELL signal detected, "
@@ -234,18 +473,28 @@ def run_strategy_paper_trade(
             return result
 
         # ----------------------------------
-        # Sell complete position
+        # Sell Position
         # ----------------------------------
 
         quantity = holding.quantity
 
         order = place_paper_order(
+
             db=db,
+
             user_id=user_id,
+
             symbol=symbol,
+
             quantity=quantity,
+
             price=price,
+
             side="SELL",
+
+            stop_loss=stop_loss_price,
+
+            target=target_price,
         )
 
         result["action"] = "SELL"
@@ -260,7 +509,7 @@ def run_strategy_paper_trade(
         return result
 
     # ======================================
-    # HOLD
+    # 13. HOLD
     # ======================================
 
     result["action"] = "HOLD"

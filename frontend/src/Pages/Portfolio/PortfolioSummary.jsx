@@ -39,6 +39,23 @@ export default function PortfolioSummary({
       ? (overallPnl / totalInvestment) * 100
       : 0;
 
+  // Yesterday's market value
+  const yesterdayValue = holdings.reduce(
+    (total, stock) => {
+      const data = marketData[stock.symbol];
+
+      if (
+        !data ||
+        typeof data.previousClose !== "number"
+      ) {
+        return total;
+      }
+
+      return total + data.previousClose * stock.quantity;
+    },
+    0
+  );
+
   // Today's P&L
   const todayPnl = holdings.reduce(
     (total, stock) => {
@@ -63,12 +80,9 @@ export default function PortfolioSummary({
   );
 
   // Today's P&L %
-  const todayInvestment =
-    currentValue - todayPnl;
-
   const todayPnlPercent =
-    todayInvestment > 0
-      ? (todayPnl / todayInvestment) * 100
+    yesterdayValue > 0
+      ? (todayPnl / yesterdayValue) * 100
       : 0;
 
   const formatMoney = (value) =>

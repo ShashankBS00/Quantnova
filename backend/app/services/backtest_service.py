@@ -1,11 +1,6 @@
 import yfinance as yf
 import pandas as pd
 
-from app.services.strategies.sma_ema import (
-    calculate_sma_ema,
-    get_sma_ema_signal,
-)
-
 
 # =========================================================
 # LOAD MARKET DATA
@@ -13,7 +8,7 @@ from app.services.strategies.sma_ema import (
 
 def load_market_data(
     symbol: str,
-    slow_period: int,
+    minimum_period: int,
 ):
     history = yf.download(
         symbol,
@@ -27,59 +22,114 @@ def load_market_data(
             f"No market data found for {symbol}"
         )
 
-    # Handle yfinance MultiIndex columns
-    if isinstance(history.columns, pd.MultiIndex):
+    # Handle yfinance MultiIndex
+    if isinstance(
+        history.columns,
+        pd.MultiIndex,
+    ):
+
         history.columns = (
-            history.columns.get_level_values(0)
+            history.columns
+            .get_level_values(0)
         )
 
     history = history.dropna(
         subset=["Close"]
     )
 
-    if len(history) < slow_period:
+    if len(history) < minimum_period:
+
         raise ValueError(
-            "Not enough historical data for this strategy"
+            "Not enough historical data "
+            "for this strategy"
         )
 
     return history
 
 
 # =========================================================
-# CALCULATE STRATEGY INDICATORS
+# CALCULATE INDICATORS
 # =========================================================
 
 def calculate_strategy_indicators(
     history,
-    strategy_type: str,
-    fast_period: int,
-    slow_period: int,
+    strategy_type,
+    parameters,
 ):
-    strategy_type = strategy_type.upper()
 
-    # -----------------------------------------------------
+    strategy_type = (
+        str(strategy_type)
+        .upper()
+    )
+
+    parameters = parameters or {}
+
+    # =====================================================
     # SMA CROSSOVER
-    # -----------------------------------------------------
+    # =====================================================
 
     if strategy_type == "SMA_CROSSOVER":
 
+        fast_period = int(
+            parameters.get(
+                "fast_period",
+                20,
+            )
+        )
+
+        slow_period = int(
+            parameters.get(
+                "slow_period",
+                50,
+            )
+        )
+
         history["fast_indicator"] = (
             history["Close"]
-            .rolling(fast_period)
+            .rolling(
+                fast_period
+            )
             .mean()
         )
 
         history["slow_indicator"] = (
             history["Close"]
-            .rolling(slow_period)
+            .rolling(
+                slow_period
+            )
             .mean()
         )
 
-    # -----------------------------------------------------
-    # EMA CROSSOVER
-    # -----------------------------------------------------
+        history["fast_sma"] = (
+            history["fast_indicator"]
+        )
 
-    elif strategy_type == "EMA_CROSSOVER":
+        history["slow_sma"] = (
+            history["slow_indicator"]
+        )
+
+        return history
+
+
+    # =====================================================
+    # EMA CROSSOVER
+    # =====================================================
+
+    if strategy_type == "EMA_CROSSOVER":
+
+        fast_period = int(
+            parameters.get(
+                "fast_period",
+                20,
+            )
+        )
+
+        slow_period = int(
+            parameters.get(
+                "slow_period",
+                50,
+            )
+        )
 
         history["fast_indicator"] = (
             history["Close"]
@@ -99,16 +149,52 @@ def calculate_strategy_indicators(
             .mean()
         )
 
-    # -----------------------------------------------------
+        history["fast_ema"] = (
+            history["fast_indicator"]
+        )
+
+        history["slow_ema"] = (
+            history["slow_indicator"]
+        )
+
+        return history
+
+
+    # =====================================================
     # SMA + EMA TREND
-    # -----------------------------------------------------
+    # =====================================================
 
-    elif strategy_type == "SMA_EMA_TREND":
+    if strategy_type == "SMA_EMA_TREND":
 
-        history = calculate_sma_ema(
-            history,
-            fast_period,
-            slow_period,
+        fast_period = int(
+            parameters.get(
+                "fast_period",
+                20,
+            )
+        )
+
+        slow_period = int(
+            parameters.get(
+                "slow_period",
+                50,
+            )
+        )
+
+        history["fast_ema"] = (
+            history["Close"]
+            .ewm(
+                span=fast_period,
+                adjust=False,
+            )
+            .mean()
+        )
+
+        history["slow_sma"] = (
+            history["Close"]
+            .rolling(
+                slow_period
+            )
+            .mean()
         )
 
         history["fast_indicator"] = (
@@ -119,366 +205,603 @@ def calculate_strategy_indicators(
             history["slow_sma"]
         )
 
-    else:
-        raise ValueError(
-            f"Unsupported strategy type: {strategy_type}"
+        return history
+
+
+    # =====================================================
+    # RSI
+    # =====================================================
+
+    if strategy_type == "RSI":
+
+        period = int(
+            parameters.get(
+                "period",
+                14,
+            )
         )
 
-    return history
+        delta = (
+            history["Close"]
+            .diff()
+        )
+
+        gain = delta.clip(
+            lower=0
+        )
+
+        loss = -delta.clip(
+            upper=0
+        )
+
+        avg_gain = (
+            gain.rolling(period)
+            .mean()
+        )
+
+        avg_loss = (
+            loss.rolling(period)
+            .mean()
+        )
+
+        rs = (
+            avg_gain /
+            avg_loss
+        )
+
+        history["rsi"] = (
+            100 -
+            (
+                100 /
+                (1 + rs)
+            )
+        )
+
+        return history
+
+
+    # =====================================================
+    # MACD
+    # =====================================================
+
+    if strategy_type == "MACD":
+
+        fast_period = int(
+            parameters.get(
+                "fast_period",
+                12,
+            )
+        )
+
+        slow_period = int(
+            parameters.get(
+                "slow_period",
+                26,
+            )
+        )
+
+        signal_period = int(
+            parameters.get(
+                "signal_period",
+                9,
+            )
+        )
+
+        fast_ema = (
+            history["Close"]
+            .ewm(
+                span=fast_period,
+                adjust=False,
+            )
+            .mean()
+        )
+
+        slow_ema = (
+            history["Close"]
+            .ewm(
+                span=slow_period,
+                adjust=False,
+            )
+            .mean()
+        )
+
+        history["macd"] = (
+            fast_ema - slow_ema
+        )
+
+        history["macd_signal"] = (
+            history["macd"]
+            .ewm(
+                span=signal_period,
+                adjust=False,
+            )
+            .mean()
+        )
+
+        return history
+
+
+    # =====================================================
+    # BOLLINGER BANDS
+    # =====================================================
+
+    if strategy_type == "BOLLINGER_BANDS":
+
+        period = int(
+            parameters.get(
+                "period",
+                20,
+            )
+        )
+
+        std_deviation = float(
+            parameters.get(
+                "std_deviation",
+                2,
+            )
+        )
+
+        middle = (
+            history["Close"]
+            .rolling(period)
+            .mean()
+        )
+
+        std = (
+            history["Close"]
+            .rolling(period)
+            .std()
+        )
+
+        history["bollinger_middle"] = (
+            middle
+        )
+
+        history["bollinger_upper"] = (
+            middle +
+            std_deviation * std
+        )
+
+        history["bollinger_lower"] = (
+            middle -
+            std_deviation * std
+        )
+
+        return history
+
+
+    raise ValueError(
+        f"Unsupported strategy type: "
+        f"{strategy_type}"
+    )
 
 
 # =========================================================
-# GET TRADING SIGNAL
+# SIGNAL
 # =========================================================
 
 def get_strategy_signal(
-    strategy_type: str,
-    close: float,
-    fast: float,
-    slow: float,
+    history,
+    index,
+    strategy_type,
+    parameters,
 ):
-    strategy_type = strategy_type.upper()
 
-    # -----------------------------------------------------
+    strategy_type = (
+        str(strategy_type)
+        .upper()
+    )
+
+    row = history.iloc[index]
+
+    close = float(
+        row["Close"]
+    )
+
+    # =====================================================
     # SMA CROSSOVER
-    # -----------------------------------------------------
+    # =====================================================
 
     if strategy_type == "SMA_CROSSOVER":
 
-        if fast > slow:
+        current_fast = row[
+            "fast_indicator"
+        ]
+
+        current_slow = row[
+            "slow_indicator"
+        ]
+
+        previous_fast = history.iloc[
+            index - 1
+        ]["fast_indicator"]
+
+        previous_slow = history.iloc[
+            index - 1
+        ]["slow_indicator"]
+
+        if any(
+            pd.isna(value)
+            for value in [
+                current_fast,
+                current_slow,
+                previous_fast,
+                previous_slow,
+            ]
+        ):
+            return "HOLD"
+
+        if (
+            previous_fast <= previous_slow
+            and
+            current_fast > current_slow
+        ):
+
             return "BUY"
 
-        if fast < slow:
+        if (
+            previous_fast >= previous_slow
+            and
+            current_fast < current_slow
+        ):
+
             return "SELL"
 
         return "HOLD"
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # EMA CROSSOVER
-    # -----------------------------------------------------
+    # =====================================================
 
     if strategy_type == "EMA_CROSSOVER":
 
-        if fast > slow:
+        current_fast = row[
+            "fast_indicator"
+        ]
+
+        current_slow = row[
+            "slow_indicator"
+        ]
+
+        previous_fast = history.iloc[
+            index - 1
+        ]["fast_indicator"]
+
+        previous_slow = history.iloc[
+            index - 1
+        ]["slow_indicator"]
+
+        if any(
+            pd.isna(value)
+            for value in [
+                current_fast,
+                current_slow,
+                previous_fast,
+                previous_slow,
+            ]
+        ):
+            return "HOLD"
+
+        if (
+            previous_fast <= previous_slow
+            and
+            current_fast > current_slow
+        ):
+
             return "BUY"
 
-        if fast < slow:
+        if (
+            previous_fast >= previous_slow
+            and
+            current_fast < current_slow
+        ):
+
             return "SELL"
 
         return "HOLD"
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # SMA + EMA TREND
-    # -----------------------------------------------------
+    # =====================================================
 
     if strategy_type == "SMA_EMA_TREND":
 
-        return get_sma_ema_signal(
-            close=close,
-            fast_ema=fast,
-            slow_sma=slow,
-        )
+        fast_ema = row[
+            "fast_ema"
+        ]
 
-    raise ValueError(
-        f"Unsupported strategy type: {strategy_type}"
-    )
+        slow_sma = row[
+            "slow_sma"
+        ]
 
-
-# =========================================================
-# PERFORMANCE METRICS
-# =========================================================
-
-def calculate_metrics(
-    initial_cash: float,
-    final_cash: float,
-    trades: list,
-    equity_curve: list,
-):
-    # -----------------------------------------------------
-    # Total Return
-    # -----------------------------------------------------
-
-    total_return = (
-        (
-            final_cash - initial_cash
-        )
-        / initial_cash
-    ) * 100
-
-    # -----------------------------------------------------
-    # Buy / Sell Trades
-    # -----------------------------------------------------
-
-    buy_trades = [
-        trade
-        for trade in trades
-        if trade["side"] == "BUY"
-    ]
-
-    sell_trades = [
-        trade
-        for trade in trades
-        if trade["side"] == "SELL"
-    ]
-
-    # -----------------------------------------------------
-    # Completed Trades
-    # -----------------------------------------------------
-
-    completed_trades = [
-        trade
-        for trade in sell_trades
-        if "pnl" in trade
-    ]
-
-    # -----------------------------------------------------
-    # Winning / Losing
-    # -----------------------------------------------------
-
-    winning_trades = [
-        trade
-        for trade in completed_trades
-        if trade["pnl"] > 0
-    ]
-
-    losing_trades = [
-        trade
-        for trade in completed_trades
-        if trade["pnl"] < 0
-    ]
-
-    winning_count = len(
-        winning_trades
-    )
-
-    losing_count = len(
-        losing_trades
-    )
-
-    total_completed = (
-        winning_count
-        + losing_count
-    )
-
-    # -----------------------------------------------------
-    # Win Rate
-    # -----------------------------------------------------
-
-    win_rate = (
-        (
-            winning_count
-            / total_completed
-        )
-        * 100
-        if total_completed > 0
-        else 0
-    )
-
-    # -----------------------------------------------------
-    # Profit Factor
-    # -----------------------------------------------------
-
-    gross_profit = sum(
-        trade["pnl"]
-        for trade in winning_trades
-    )
-
-    gross_loss = sum(
-        abs(trade["pnl"])
-        for trade in losing_trades
-    )
-
-    if gross_loss > 0:
-
-        profit_factor = (
-            gross_profit
-            / gross_loss
-        )
-
-    elif gross_profit > 0:
-
-        profit_factor = None
-
-    else:
-
-        profit_factor = 0
-
-    # -----------------------------------------------------
-    # Maximum Drawdown
-    # -----------------------------------------------------
-
-    max_drawdown = 0.0
-
-    equity_values = [
-        point["equity"]
-        for point in equity_curve
-    ]
-
-    if equity_values:
-
-        equity_series = pd.Series(
-            equity_values
-        )
-
-        running_peak = (
-            equity_series.cummax()
-        )
-
-        drawdown = (
-            (
-                equity_series
-                - running_peak
-            )
-            / running_peak
-        ) * 100
-
-        max_drawdown = abs(
-            float(
-                drawdown.min()
-            )
-        )
-
-        # Add drawdown to equity curve
-        for index, point in enumerate(
-            equity_curve
+        if (
+            pd.isna(fast_ema)
+            or
+            pd.isna(slow_sma)
         ):
 
-            point["drawdown"] = round(
-                float(
-                    drawdown.iloc[index]
-                ),
-                2,
+            return "HOLD"
+
+        if (
+            close > fast_ema
+            and
+            fast_ema > slow_sma
+        ):
+
+            return "BUY"
+
+        if (
+            close < fast_ema
+            and
+            fast_ema < slow_sma
+        ):
+
+            return "SELL"
+
+        return "HOLD"
+
+
+    # =====================================================
+    # RSI
+    # =====================================================
+
+    if strategy_type == "RSI":
+
+        rsi = row["rsi"]
+
+        if pd.isna(rsi):
+            return "HOLD"
+
+        oversold = float(
+            parameters.get(
+                "oversold",
+                30,
             )
+        )
 
-    # -----------------------------------------------------
-    # Return Metrics
-    # -----------------------------------------------------
-
-    return {
-        "initial_cash": round(
-            initial_cash,
-            2,
-        ),
-
-        "final_cash": round(
-            final_cash,
-            2,
-        ),
-
-        "total_return": round(
-            total_return,
-            2,
-        ),
-
-        "total_trades": len(
-            completed_trades
-        ),
-
-        "buy_trades": len(
-            buy_trades
-        ),
-
-        "sell_trades": len(
-            sell_trades
-        ),
-
-        "winning_trades": (
-            winning_count
-        ),
-
-        "losing_trades": (
-            losing_count
-        ),
-
-        "win_rate": round(
-            win_rate,
-            2,
-        ),
-
-        "profit_factor": (
-            round(
-                profit_factor,
-                2,
+        overbought = float(
+            parameters.get(
+                "overbought",
+                70,
             )
-            if profit_factor is not None
-            else None
-        ),
+        )
 
-        "max_drawdown": round(
-            max_drawdown,
-            2,
-        ),
-    }
+        if rsi <= oversold:
+            return "BUY"
+
+        if rsi >= overbought:
+            return "SELL"
+
+        return "HOLD"
+
+
+    # =====================================================
+    # MACD
+    # =====================================================
+
+    if strategy_type == "MACD":
+
+        macd = row["macd"]
+
+        signal_line = row[
+            "macd_signal"
+        ]
+
+        if (
+            pd.isna(macd)
+            or
+            pd.isna(signal_line)
+        ):
+            return "HOLD"
+
+        previous_macd = history.iloc[
+            index - 1
+        ]["macd"]
+
+        previous_signal = history.iloc[
+            index - 1
+        ]["macd_signal"]
+
+        if (
+            previous_macd <= previous_signal
+            and
+            macd > signal_line
+        ):
+
+            return "BUY"
+
+        if (
+            previous_macd >= previous_signal
+            and
+            macd < signal_line
+        ):
+
+            return "SELL"
+
+        return "HOLD"
+
+
+    # =====================================================
+    # BOLLINGER
+    # =====================================================
+
+    if strategy_type == "BOLLINGER_BANDS":
+
+        upper = row[
+            "bollinger_upper"
+        ]
+
+        lower = row[
+            "bollinger_lower"
+        ]
+
+        if (
+            pd.isna(upper)
+            or
+            pd.isna(lower)
+        ):
+            return "HOLD"
+
+        if close <= lower:
+            return "BUY"
+
+        if close >= upper:
+            return "SELL"
+
+        return "HOLD"
+
+
+    raise ValueError(
+        f"Unsupported strategy type: "
+        f"{strategy_type}"
+    )
 
 
 # =========================================================
-# COMMON BACKTEST ENGINE
+# BACKTEST
 # =========================================================
 
 def run_strategy_backtest(
     symbol: str,
     strategy_type: str,
-    fast_period: int,
-    slow_period: int,
+    parameters: dict,
     initial_cash: float = 100000.0,
+    stop_loss_percent=None,
+    risk_reward_ratio=None,
 ):
 
-    strategy_type = (
-        strategy_type.upper()
+    symbol = (
+        symbol
+        .strip()
+        .upper()
     )
 
-    # -----------------------------------------------------
-    # Validate
-    # -----------------------------------------------------
+    strategy_type = (
+        strategy_type
+        .strip()
+        .upper()
+    )
 
-    if not symbol.strip():
+    parameters = parameters or {}
+
+    # -----------------------------------------------
+    # Period needed
+    # -----------------------------------------------
+
+    fast_period = int(
+        parameters.get(
+            "fast_period",
+            20,
+        )
+    )
+
+    slow_period = int(
+        parameters.get(
+            "slow_period",
+            50,
+        )
+    )
+
+    if strategy_type == "RSI":
+
+        minimum_period = int(
+            parameters.get(
+                "period",
+                14,
+            )
+        )
+
+    elif strategy_type == "BOLLINGER_BANDS":
+
+        minimum_period = int(
+            parameters.get(
+                "period",
+                20,
+            )
+        )
+
+    elif strategy_type == "MACD":
+
+        minimum_period = (
+            int(
+                parameters.get(
+                    "slow_period",
+                    26,
+                )
+            )
+            +
+            int(
+                parameters.get(
+                    "signal_period",
+                    9,
+                )
+            )
+        )
+
+    else:
+
+        minimum_period = max(
+            fast_period,
+            slow_period,
+        )
+
+    # -----------------------------------------------
+    # Validation
+    # -----------------------------------------------
+
+    if not symbol:
+
         raise ValueError(
             "Stock symbol is required"
         )
 
-    if fast_period <= 0:
-        raise ValueError(
-            "Fast period must be greater than 0"
-        )
-
-    if slow_period <= 0:
-        raise ValueError(
-            "Slow period must be greater than 0"
-        )
-
-    if fast_period >= slow_period:
-        raise ValueError(
-            "Fast period must be smaller than slow period"
-        )
-
     if initial_cash <= 0:
+
         raise ValueError(
             "Initial cash must be greater than 0"
         )
 
-    # -----------------------------------------------------
-    # Load Data
-    # -----------------------------------------------------
+    if (
+        strategy_type
+        in [
+            "SMA_CROSSOVER",
+            "EMA_CROSSOVER",
+            "SMA_EMA_TREND",
+        ]
+        and
+        fast_period >= slow_period
+    ):
+
+        raise ValueError(
+            "Fast period must be smaller than slow period"
+        )
+
+    # -----------------------------------------------
+    # Load data
+    # -----------------------------------------------
 
     history = load_market_data(
         symbol,
-        slow_period,
+        minimum_period,
     )
 
-    # -----------------------------------------------------
-    # Calculate Indicators
-    # -----------------------------------------------------
+    # -----------------------------------------------
+    # Indicators
+    # -----------------------------------------------
 
-    history = calculate_strategy_indicators(
-        history,
-        strategy_type,
-        fast_period,
-        slow_period,
+    history = (
+        calculate_strategy_indicators(
+            history,
+            strategy_type,
+            parameters,
+        )
     )
 
-    # -----------------------------------------------------
+    # -----------------------------------------------
     # Portfolio
-    # -----------------------------------------------------
+    # -----------------------------------------------
 
     cash = float(
         initial_cash
@@ -492,136 +815,345 @@ def run_strategy_backtest(
 
     equity_curve = []
 
-    # -----------------------------------------------------
-    # Backtest Loop
-    # -----------------------------------------------------
+    # -----------------------------------------------
+    # Backtest
+    # -----------------------------------------------
 
-    for index, row in history.iterrows():
+    for index in range(
+        1,
+        len(history),
+    ):
+
+        row = history.iloc[index]
 
         close = float(
             row["Close"]
         )
 
-        fast = row[
-            "fast_indicator"
-        ]
-
-        slow = row[
-            "slow_indicator"
-        ]
-
-        # Skip until indicators are ready
-        if (
-            pd.isna(fast)
-            or pd.isna(slow)
-        ):
-            continue
-
         signal = get_strategy_signal(
+            history=history,
+            index=index,
             strategy_type=strategy_type,
-            close=close,
-            fast=float(fast),
-            slow=float(slow),
+            parameters=parameters,
         )
 
-        # =================================================
+        # ==========================================
+        # Existing position risk management
+        # ==========================================
+
+        if (
+            shares > 0
+            and
+            entry_price is not None
+        ):
+
+            stop_price = None
+            target_price = None
+
+            if (
+                stop_loss_percent
+                is not None
+                and
+                float(
+                    stop_loss_percent
+                ) > 0
+            ):
+
+                risk = (
+                    entry_price
+                    *
+                    float(
+                        stop_loss_percent
+                    )
+                    / 100
+                )
+
+                stop_price = (
+                    entry_price
+                    - risk
+                )
+
+                if (
+                    risk_reward_ratio
+                    is not None
+                    and
+                    float(
+                        risk_reward_ratio
+                    ) > 0
+                ):
+
+                    target_price = (
+                        entry_price
+                        +
+                        (
+                            risk
+                            *
+                            float(
+                                risk_reward_ratio
+                            )
+                        )
+                    )
+
+            # Stop loss
+
+            if (
+                stop_price is not None
+                and
+                close <= stop_price
+            ):
+
+                pnl = (
+                    stop_price
+                    - entry_price
+                ) * shares
+
+                cash += (
+                    shares
+                    * stop_price
+                )
+
+                trades.append({
+                    "date":
+                        history.index[
+                            index
+                        ].strftime(
+                            "%Y-%m-%d"
+                        ),
+
+                    "side": "SELL",
+
+                    "price": round(
+                        stop_price,
+                        2,
+                    ),
+
+                    "quantity":
+                        shares,
+
+                    "pnl": round(
+                        pnl,
+                        2,
+                    ),
+
+                    "reason":
+                        "STOP_LOSS",
+                })
+
+                shares = 0
+
+                entry_price = None
+
+                equity_curve.append({
+                    "date":
+                        history.index[
+                            index
+                        ].strftime(
+                            "%Y-%m-%d"
+                        ),
+
+                    "equity":
+                        round(
+                            cash,
+                            2,
+                        ),
+                })
+
+                continue
+
+            # Target
+
+            if (
+                target_price is not None
+                and
+                close >= target_price
+            ):
+
+                pnl = (
+                    target_price
+                    - entry_price
+                ) * shares
+
+                cash += (
+                    shares
+                    * target_price
+                )
+
+                trades.append({
+                    "date":
+                        history.index[
+                            index
+                        ].strftime(
+                            "%Y-%m-%d"
+                        ),
+
+                    "side": "SELL",
+
+                    "price": round(
+                        target_price,
+                        2,
+                    ),
+
+                    "quantity":
+                        shares,
+
+                    "pnl": round(
+                        pnl,
+                        2,
+                    ),
+
+                    "reason":
+                        "TARGET",
+                })
+
+                shares = 0
+
+                entry_price = None
+
+                equity_curve.append({
+                    "date":
+                        history.index[
+                            index
+                        ].strftime(
+                            "%Y-%m-%d"
+                        ),
+
+                    "equity":
+                        round(
+                            cash,
+                            2,
+                        ),
+                })
+
+                continue
+
+        # ==========================================
         # BUY
-        # =================================================
+        # ==========================================
 
         if (
             signal == "BUY"
-            and shares == 0
+            and
+            shares == 0
         ):
 
-            shares = int(
+            quantity = int(
                 cash // close
             )
 
-            if shares > 0:
+            if quantity > 0:
 
                 cost = (
-                    shares * close
+                    quantity
+                    * close
                 )
 
                 cash -= cost
 
+                shares = quantity
+
                 entry_price = close
 
                 trades.append({
-                    "date": index.strftime(
-                        "%Y-%m-%d"
-                    ),
+                    "date":
+                        history.index[
+                            index
+                        ].strftime(
+                            "%Y-%m-%d"
+                        ),
+
                     "side": "BUY",
+
                     "price": round(
                         close,
                         2,
                     ),
-                    "quantity": shares,
+
+                    "quantity":
+                        quantity,
                 })
 
-        # =================================================
+        # ==========================================
         # SELL
-        # =================================================
+        # ==========================================
 
         elif (
             signal == "SELL"
-            and shares > 0
+            and
+            shares > 0
         ):
 
-            cash += (
-                shares * close
-            )
-
-            realized_pnl = (
+            pnl = (
                 close
                 - entry_price
             ) * shares
 
+            cash += (
+                shares
+                * close
+            )
+
             trades.append({
-                "date": index.strftime(
-                    "%Y-%m-%d"
-                ),
+                "date":
+                    history.index[
+                        index
+                    ].strftime(
+                        "%Y-%m-%d"
+                    ),
+
                 "side": "SELL",
+
                 "price": round(
                     close,
                     2,
                 ),
-                "quantity": shares,
+
+                "quantity":
+                    shares,
+
                 "pnl": round(
-                    realized_pnl,
+                    pnl,
                     2,
                 ),
+
+                "reason":
+                    "SIGNAL",
             })
 
             shares = 0
 
             entry_price = None
 
-        # =================================================
-        # EQUITY
-        # =================================================
+        # ==========================================
+        # Equity
+        # ==========================================
 
         equity = (
             cash
-            + (
+            +
+            (
                 shares
                 * close
             )
         )
 
         equity_curve.append({
-            "date": index.strftime(
-                "%Y-%m-%d"
-            ),
-            "equity": round(
-                equity,
-                2,
-            ),
+            "date":
+                history.index[
+                    index
+                ].strftime(
+                    "%Y-%m-%d"
+                ),
+
+            "equity":
+                round(
+                    equity,
+                    2,
+                ),
         })
 
-    # =====================================================
-    # CLOSE REMAINING POSITION
-    # =====================================================
+    # ==========================================
+    # Close final position
+    # ==========================================
 
     final_price = float(
         history["Close"].iloc[-1]
@@ -629,121 +1161,263 @@ def run_strategy_backtest(
 
     if shares > 0:
 
+        pnl = (
+            final_price
+            - entry_price
+        ) * shares
+
         cash += (
             shares
             * final_price
         )
 
-        realized_pnl = (
-            final_price
-            - entry_price
-        ) * shares
-
         trades.append({
-            "date": history.index[-1].strftime(
-                "%Y-%m-%d"
-            ),
+            "date":
+                history.index[
+                    -1
+                ].strftime(
+                    "%Y-%m-%d"
+                ),
+
             "side": "SELL",
+
             "price": round(
                 final_price,
                 2,
             ),
-            "quantity": shares,
+
+            "quantity":
+                shares,
+
             "pnl": round(
-                realized_pnl,
+                pnl,
                 2,
             ),
+
+            "reason":
+                "END_OF_BACKTEST",
         })
 
         shares = 0
 
         entry_price = None
 
-    # =====================================================
-    # FINAL CASH
-    # =====================================================
+    # ==========================================
+    # Metrics
+    # ==========================================
 
     final_cash = cash
 
-    # =====================================================
-    # METRICS
-    # =====================================================
+    completed_trades = [
+        trade
+        for trade in trades
+        if (
+            trade["side"] == "SELL"
+            and
+            "pnl" in trade
+        )
+    ]
 
-    metrics = calculate_metrics(
-        initial_cash=initial_cash,
-        final_cash=final_cash,
-        trades=trades,
-        equity_curve=equity_curve,
+    winning = [
+        trade
+        for trade in completed_trades
+        if trade["pnl"] > 0
+    ]
+
+    losing = [
+        trade
+        for trade in completed_trades
+        if trade["pnl"] < 0
+    ]
+
+    total_completed = len(
+        completed_trades
     )
 
-    # =====================================================
-    # RESULT
-    # =====================================================
+    win_rate = (
+        (
+            len(winning)
+            /
+            total_completed
+        )
+        * 100
+        if total_completed
+        else 0
+    )
+
+    gross_profit = sum(
+        trade["pnl"]
+        for trade in winning
+    )
+
+    gross_loss = sum(
+        abs(
+            trade["pnl"]
+        )
+        for trade in losing
+    )
+
+    if gross_loss > 0:
+
+        profit_factor = (
+            gross_profit
+            /
+            gross_loss
+        )
+
+    elif gross_profit > 0:
+
+        profit_factor = None
+
+    else:
+
+        profit_factor = 0
+
+    # ==========================================
+    # Drawdown
+    # ==========================================
+
+    equity_values = [
+        item["equity"]
+        for item in equity_curve
+    ]
+
+    max_drawdown = 0
+
+    if equity_values:
+
+        series = pd.Series(
+            equity_values
+        )
+
+        peak = (
+            series.cummax()
+        )
+
+        drawdown = (
+            (
+                series
+                - peak
+            )
+            /
+            peak
+        ) * 100
+
+        max_drawdown = abs(
+            float(
+                drawdown.min()
+            )
+        )
+
+        for i, point in enumerate(
+            equity_curve
+        ):
+
+            point["drawdown"] = round(
+                float(
+                    drawdown.iloc[i]
+                ),
+                2,
+            )
+
+    total_return = (
+        (
+            final_cash
+            -
+            initial_cash
+        )
+        /
+        initial_cash
+    ) * 100
+
+    # ==========================================
+    # Result
+    # ==========================================
 
     return {
-        "symbol": symbol.upper(),
 
-        "strategy": strategy_type,
+        "symbol":
+            symbol,
 
-        "fast_period": fast_period,
+        "strategy":
+            strategy_type,
 
-        "slow_period": slow_period,
+        "parameters":
+            parameters,
 
-        **metrics,
+        "initial_cash":
+            round(
+                initial_cash,
+                2,
+            ),
 
-        "equity_curve": equity_curve,
+        "final_cash":
+            round(
+                final_cash,
+                2,
+            ),
 
-        "trades": trades,
+        "total_return":
+            round(
+                total_return,
+                2,
+            ),
+
+        "total_trades":
+            total_completed,
+
+        "buy_trades":
+            len([
+                t
+                for t in trades
+                if t["side"] == "BUY"
+            ]),
+
+        "sell_trades":
+            len([
+                t
+                for t in trades
+                if t["side"] == "SELL"
+            ]),
+
+        "winning_trades":
+            len(winning),
+
+        "losing_trades":
+            len(losing),
+
+        "win_rate":
+            round(
+                win_rate,
+                2,
+            ),
+
+        "profit_factor":
+            (
+                round(
+                    profit_factor,
+                    2,
+                )
+                if profit_factor
+                is not None
+                else None
+            ),
+
+        "max_drawdown":
+            round(
+                max_drawdown,
+                2,
+            ),
+
+        "stop_loss_percent":
+            stop_loss_percent,
+
+        "risk_reward_ratio":
+            risk_reward_ratio,
+
+        "equity_curve":
+            equity_curve,
+
+        "trades":
+            trades,
     }
-
-
-# =========================================================
-# BACKWARD COMPATIBILITY
-# =========================================================
-
-def run_sma_backtest(
-    symbol: str,
-    fast_period: int,
-    slow_period: int,
-    initial_cash: float = 100000.0,
-):
-
-    return run_strategy_backtest(
-        symbol=symbol,
-        strategy_type="SMA_CROSSOVER",
-        fast_period=fast_period,
-        slow_period=slow_period,
-        initial_cash=initial_cash,
-    )
-
-
-def run_ema_backtest(
-    symbol: str,
-    fast_period: int,
-    slow_period: int,
-    initial_cash: float = 100000.0,
-):
-
-    return run_strategy_backtest(
-        symbol=symbol,
-        strategy_type="EMA_CROSSOVER",
-        fast_period=fast_period,
-        slow_period=slow_period,
-        initial_cash=initial_cash,
-    )
-
-
-def run_sma_ema_backtest(
-    symbol: str,
-    fast_period: int,
-    slow_period: int,
-    initial_cash: float = 100000.0,
-):
-
-    return run_strategy_backtest(
-        symbol=symbol,
-        strategy_type="SMA_EMA_TREND",
-        fast_period=fast_period,
-        slow_period=slow_period,
-        initial_cash=initial_cash,
-    )

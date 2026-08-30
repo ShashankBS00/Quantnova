@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Numeric,
+    JSON,
     CheckConstraint,
     UniqueConstraint,
 )
@@ -89,6 +90,10 @@ class Strategy(Base):
         index=True,
     )
 
+    # --------------------------------------
+    # Basic Information
+    # --------------------------------------
+
     name = Column(
         String(100),
         nullable=False,
@@ -100,38 +105,108 @@ class Strategy(Base):
         index=True,
     )
 
+    # STOCK / INDEX / ETF
     asset_type = Column(
         String(30),
         nullable=False,
         default="STOCK",
     )
 
+    # INTRADAY / SWING / POSITION
+    trading_style = Column(
+        String(30),
+        nullable=False,
+        default="INTRADAY",
+    )
+
+    # 5m / 15m / 30m / 1h / 1d / 1wk etc.
     timeframe = Column(
         String(20),
         nullable=False,
         default="1d",
     )
 
+    # --------------------------------------
+    # Strategy Type
+    # --------------------------------------
+
+    # Example:
+    # SMA_CROSSOVER
+    # EMA_CROSSOVER
+    # RSI
+    # MACD
+    # BOLLINGER_BANDS
     strategy_type = Column(
         String(50),
         nullable=False,
     )
 
-    fast_period = Column(
-        Integer,
-        nullable=False,
+    # --------------------------------------
+    # Strategy-specific settings
+    # --------------------------------------
+    #
+    # SMA:
+    # {
+    #     "fast_period": 20,
+    #     "slow_period": 50
+    # }
+    #
+    # RSI:
+    # {
+    #     "period": 14,
+    #     "oversold": 30,
+    #     "overbought": 70
+    # }
+    #
+    # MACD:
+    # {
+    #     "fast_period": 12,
+    #     "slow_period": 26,
+    #     "signal_period": 9
+    # }
+    #
+    # Bollinger:
+    # {
+    #     "period": 20,
+    #     "std_deviation": 2
+    # }
+
+    parameters = Column(
+        JSON,
+        nullable=True,
     )
 
-    slow_period = Column(
-        Integer,
-        nullable=False,
+    # --------------------------------------
+    # Risk Management
+    # --------------------------------------
+
+    # Example:
+    # 2.00 = 2% stop loss
+    stop_loss_percent = Column(
+        Numeric(8, 2),
+        nullable=True,
     )
+
+    # Example:
+    # 2.00 = Risk : Reward = 1 : 2
+    risk_reward_ratio = Column(
+        Numeric(8, 2),
+        nullable=True,
+    )
+
+    # --------------------------------------
+    # Created information
+    # --------------------------------------
 
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
         nullable=False,
     )
+
+    # --------------------------------------
+    # User
+    # --------------------------------------
 
     user_id = Column(
         Integer,
@@ -145,7 +220,10 @@ class Strategy(Base):
         back_populates="strategies",
     )
 
+    # --------------------------------------
     # Strategy → Paper Trades
+    # --------------------------------------
+
     paper_trades = relationship(
         "PaperTrade",
         back_populates="strategy",
@@ -380,11 +458,11 @@ class Order(Base):
         default=datetime.utcnow,
         nullable=False,
     )
+
     account = relationship(
-    "TradingAccount",
-    back_populates="orders",
+        "TradingAccount",
+        back_populates="orders",
     )
-   
 
     __table_args__ = (
         CheckConstraint(
