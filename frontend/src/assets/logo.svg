@@ -1,23 +1,31 @@
-<svg width="260" height="80" viewBox="0 0 260 80" xmlns="http://www.w3.org/2000/svg" id="logo-light">
-      <defs>
-        <linearGradient id="qgrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#4F6BFF"/>
-          <stop offset="100%" stop-color="#7B93FF"/>
-        </linearGradient>
-      </defs>
-      <!-- Outer ring -->
-      <circle cx="40" cy="40" r="34" fill="none" stroke="url(#qgrad)" stroke-width="3.5"/>
-      <!-- Inner accent arc (top-right quarter) -->
-      <path d="M40 8 A32 32 0 0 1 72 40" fill="none" stroke="#4F6BFF" stroke-width="3.5" stroke-linecap="round" opacity="0.35"/>
-      <!-- Q body -->
-      <circle cx="40" cy="40" r="22" fill="#4F6BFF"/>
-      <!-- Q letter -->
-      <text x="40" y="49" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="28" fill="#ffffff" letter-spacing="-1">Q</text>
-      <!-- Q tail notch -->
-      <line x1="53" y1="54" x2="63" y2="64" stroke="#4F6BFF" stroke-width="4" stroke-linecap="round"/>
-      <!-- Wordmark -->
-      <text x="88" y="36" font-family="Arial,sans-serif" font-weight="800" font-size="26" fill="#0B0F2E" letter-spacing="-0.5">Quant</text>
-      <text x="88" y="36" font-family="Arial,sans-serif" font-weight="800" font-size="26" fill="#4F6BFF" letter-spacing="-0.5" dx="78">Nova</text>
-      <!-- Tagline -->
-      <text x="88" y="56" font-family="Arial,sans-serif" font-weight="400" font-size="11.5" fill="#546E7A" letter-spacing="0.02em">Trade smarter. Powered by AI.</text>
-    </svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="qnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="pulseGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Base Icon Plate -->
+  <rect width="100" height="100" rx="24" fill="#0c1328" stroke="#1d2d54" stroke-width="3"/>
+
+  <!-- Candlestick Bar 1 (Green Up Candle) -->
+  <line x1="32" y1="26" x2="32" y2="74" stroke="#10b981" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="27" y="38" width="10" height="24" rx="2.5" fill="#10b981"/>
+
+  <!-- Candlestick Bar 2 (Blue Algo Bar) -->
+  <line x1="50" y1="20" x2="50" y2="80" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="45" y="30" width="10" height="34" rx="2.5" fill="url(#qnGrad)"/>
+
+  <!-- Candlestick Bar 3 (Rising Momentum Bar) -->
+  <line x1="68" y1="28" x2="68" y2="72" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="63" y="35" width="10" height="22" rx="2.5" fill="#3b82f6"/>
+
+  <!-- Upward Trend Accent Wave -->
+  <path d="M22 62 Q 44 48, 56 36 T 78 22" fill="none" stroke="url(#pulseGrad)" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="78" cy="22" r="4" fill="#10b981"/>
+</svg>
