@@ -61,12 +61,20 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 h-full bg-[#070b16] border-r border-[#141e38] flex flex-col justify-between select-none shrink-0">
+    <aside className="w-64 h-full flex flex-col justify-between select-none shrink-0 border-r"
+      style={{
+        background: 'linear-gradient(180deg, #090c18 0%, #070a14 100%)',
+        borderColor: 'rgba(99, 102, 241, 0.12)',
+      }}>
       {/* 1. Categorized Navigation Links */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-5 scrollbar-none">
+      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-none">
         {navGroups.map((group) => (
           <div key={group.title}>
-            <p className="px-3 text-[10px] font-bold tracking-wider text-slate-500 uppercase font-mono mb-1.5">
+            <p className="px-3 text-[9px] font-bold tracking-widest mb-2"
+              style={{
+                color: 'var(--qn-text-3)',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>
               {group.title}
             </p>
             <div className="space-y-0.5">
@@ -78,15 +86,27 @@ export default function Sidebar() {
                     to={item.path}
                     end={item.path === "/dashboard"}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
+                      `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
                         isActive
-                          ? "bg-[#142352] text-blue-400 border border-[#2b489a] shadow-sm shadow-blue-950/40"
-                          : "text-slate-400 hover:text-slate-200 hover:bg-[#0c1328] border border-transparent"
+                          ? "text-white border"
+                          : "border border-transparent hover:border-[rgba(99,102,241,0.12)]"
                       }`
                     }
+                    style={({ isActive }) => isActive ? {
+                      background: 'linear-gradient(135deg, rgba(99,102,241,0.20) 0%, rgba(124,58,237,0.12) 100%)',
+                      borderColor: 'rgba(99,102,241,0.30)',
+                      boxShadow: '0 0 12px rgba(99,102,241,0.10)',
+                      color: '#a5b4fc',
+                    } : {
+                      color: 'var(--qn-text-2)',
+                    }}
                   >
-                    <Icon size={16} className="shrink-0" />
-                    <span className="truncate">{item.name}</span>
+                    {({ isActive }) => (
+                      <>
+                        <Icon size={16} className="shrink-0" style={{ color: isActive ? '#a5b4fc' : 'var(--qn-text-3)' }} />
+                        <span className="truncate">{item.name}</span>
+                      </>
+                    )}
                   </NavLink>
                 );
               })}
@@ -96,13 +116,17 @@ export default function Sidebar() {
       </div>
 
       {/* 2. User Card & Logout Dock */}
-      <div className="p-3 border-t border-[#141e38] bg-[#050811]/60">
+      <div className="p-3 border-t" style={{ borderColor: 'rgba(99,102,241,0.12)', background: 'rgba(6,8,16,0.6)' }}>
         {user && (
-          <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-[#0c1328] border border-[#162346] flex flex-col">
-            <span className="text-xs font-semibold text-white truncate">
+          <div className="mb-2 px-3 py-2 rounded-xl flex flex-col gap-0.5"
+            style={{
+              background: 'rgba(99,102,241,0.07)',
+              border: '1px solid rgba(99,102,241,0.14)',
+            }}>
+            <span className="text-xs font-semibold truncate" style={{ color: 'var(--qn-text-1)', fontFamily: "'Space Grotesk', sans-serif" }}>
               {user.username || "Shashank"}
             </span>
-            <span className="text-[10px] text-slate-400 truncate">
+            <span className="text-[10px] truncate" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
               {user.email || "ram@gmail.com"}
             </span>
           </div>
@@ -110,16 +134,20 @@ export default function Sidebar() {
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200"
+          style={{ color: 'var(--qn-bear)', fontFamily: "'Inter', sans-serif" }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(244,63,94,0.08)'; e.currentTarget.style.color = '#fb7185'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--qn-bear)'; }}
         >
           <LogOut size={14} />
           <span>Logout</span>
         </button>
 
-        <div className="text-[10px] text-slate-600 text-center mt-2 font-mono">
+        <div className="text-center mt-2" style={{ fontSize: '9px', color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
           QuantNova Pro v1.0.0
         </div>
       </div>
     </aside>
   );
 }
+
