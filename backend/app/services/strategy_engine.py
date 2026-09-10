@@ -2,34 +2,53 @@ import pandas as pd
 
 
 # ==========================================
-# Helper: SMA
+# Import Strategies
 # ==========================================
 
-def calculate_sma(series, period):
-    return (
-        pd.to_numeric(series, errors="coerce")
-        .rolling(window=period)
-        .mean()
-    )
+from app.services.strategies.sma_ema import (
+    calculate_sma_ema,
+    get_sma_ema_signal,
+)
 
+from app.services.strategies.macd import (
+    calculate_macd,
+    get_macd_signal,
+)
 
-# ==========================================
-# Helper: EMA
-# ==========================================
-
-def calculate_ema(series, period):
-    return (
-        pd.to_numeric(series, errors="coerce")
-        .ewm(
-            span=period,
-            adjust=False
-        )
-        .mean()
-    )
+from app.services.strategies.bollinger_bands import (
+    calculate_bollinger_bands,
+    get_bollinger_signal,
+)
 
 
 # ==========================================
-# Generate Trading Signal
+# Default Result
+# ==========================================
+
+def default_result():
+
+    return {
+        "signal": "HOLD",
+        "price": 0.0,
+
+        # SMA / EMA
+        "fast_ema": 0.0,
+        "slow_sma": 0.0,
+
+        # MACD
+        "macd": 0.0,
+        "macd_signal": 0.0,
+        "macd_hist": 0.0,
+
+        # Bollinger Bands
+        "bollinger_middle": 0.0,
+        "bollinger_upper": 0.0,
+        "bollinger_lower": 0.0,
+    }
+
+
+# ==========================================
+# Generate Signal
 # ==========================================
 
 def generate_signal(
@@ -39,273 +58,82 @@ def generate_signal(
 ):
 
     # --------------------------------------
-    # Validate dataframe
+    # Validate DataFrame
     # --------------------------------------
 
     if df is None or df.empty:
 
-        return {
-            "signal": "HOLD",
-            "price": 0.0,
-            "fast_ema": 0.0,
-            "slow_sma": 0.0,
-            "fast_sma": 0.0,
-            "slow_ema": 0.0,
-        }
+        return default_result()
 
     if "Close" not in df.columns:
 
-        return {
-            "signal": "HOLD",
-            "price": 0.0,
-            "fast_ema": 0.0,
-            "slow_sma": 0.0,
-            "fast_sma": 0.0,
-            "slow_ema": 0.0,
-        }
+        return default_result()
+
 
     # --------------------------------------
     # Parameters
     # --------------------------------------
 
     if parameters is None:
+
         parameters = {}
 
     if not isinstance(parameters, dict):
 
         raise ValueError(
-            "Strategy parameters must be an object"
+            "Strategy parameters must be a dictionary"
         )
 
+
     # --------------------------------------
-    # Normalize strategy
+    # Normalize Strategy Type
     # --------------------------------------
 
     strategy_type = str(
         strategy_type
     ).upper()
 
+
     # --------------------------------------
-    # Close prices
+    # Clean Close Prices
     # --------------------------------------
 
-    close = pd.to_numeric(
+    df = df.copy()
+
+    df["Close"] = pd.to_numeric(
         df["Close"],
         errors="coerce"
-    ).dropna()
-
-    if close.empty:
-
-        return {
-            "signal": "HOLD",
-            "price": 0.0,
-            "fast_ema": 0.0,
-            "slow_sma": 0.0,
-            "fast_sma": 0.0,
-            "slow_ema": 0.0,
-        }
-
-    current_price = float(
-        close.iloc[-1]
     )
 
+    df = df.dropna(
+        subset=["Close"]
+    )
+
+    if df.empty:
+
+        return default_result()
+
+
+    # --------------------------------------
+    # Current Price
+    # --------------------------------------
+
+    current_price = float(
+        df["Close"].iloc[-1]
+    )
+
+
+    result = default_result()
+
+    result["price"] = round(
+        current_price,
+        2
+    )
+
+
     # ======================================
-    # Default result
-    # ======================================
-
-    result = {
-        "signal": "HOLD",
-        "price": round(
-            current_price,
-            2
-        ),
-        "fast_ema": 0.0,
-        "slow_sma": 0.0,
-        "fast_sma": 0.0,
-        "slow_ema": 0.0,
-    }
-
-    # ==========================================
-    # SMA CROSSOVER
-    # ==========================================
-
-    if strategy_type == "SMA_CROSSOVER":
-
-        fast_period = int(
-            parameters.get(
-                "fast_period",
-                20
-            )
-        )
-
-        slow_period = int(
-            parameters.get(
-                "slow_period",
-                50
-            )
-        )
-
-        if fast_period >= slow_period:
-
-            raise ValueError(
-                "Fast SMA period must be smaller than slow SMA period"
-            )
-
-        if len(close) < slow_period + 1:
-
-            return result
-
-        fast_sma = calculate_sma(
-            close,
-            fast_period
-        )
-
-        slow_sma = calculate_sma(
-            close,
-            slow_period
-        )
-
-        current_fast = float(
-            fast_sma.iloc[-1]
-        )
-
-        current_slow = float(
-            slow_sma.iloc[-1]
-        )
-
-        previous_fast = float(
-            fast_sma.iloc[-2]
-        )
-
-        previous_slow = float(
-            slow_sma.iloc[-2]
-        )
-
-        # Actual crossover
-
-        if (
-            previous_fast <= previous_slow
-            and current_fast > current_slow
-        ):
-
-            signal = "BUY"
-
-        elif (
-            previous_fast >= previous_slow
-            and current_fast < current_slow
-        ):
-
-            signal = "SELL"
-
-        else:
-
-            signal = "HOLD"
-
-        result.update({
-            "signal": signal,
-            "fast_sma": round(
-                current_fast,
-                2
-            ),
-            "slow_sma": round(
-                current_slow,
-                2
-            ),
-        })
-
-        return result
-
-    # ==========================================
-    # EMA CROSSOVER
-    # ==========================================
-
-    if strategy_type == "EMA_CROSSOVER":
-
-        fast_period = int(
-            parameters.get(
-                "fast_period",
-                20
-            )
-        )
-
-        slow_period = int(
-            parameters.get(
-                "slow_period",
-                50
-            )
-        )
-
-        if fast_period >= slow_period:
-
-            raise ValueError(
-                "Fast EMA period must be smaller than slow EMA period"
-            )
-
-        if len(close) < slow_period + 1:
-
-            return result
-
-        fast_ema = calculate_ema(
-            close,
-            fast_period
-        )
-
-        slow_ema = calculate_ema(
-            close,
-            slow_period
-        )
-
-        current_fast = float(
-            fast_ema.iloc[-1]
-        )
-
-        current_slow = float(
-            slow_ema.iloc[-1]
-        )
-
-        previous_fast = float(
-            fast_ema.iloc[-2]
-        )
-
-        previous_slow = float(
-            slow_ema.iloc[-2]
-        )
-
-        if (
-            previous_fast <= previous_slow
-            and current_fast > current_slow
-        ):
-
-            signal = "BUY"
-
-        elif (
-            previous_fast >= previous_slow
-            and current_fast < current_slow
-        ):
-
-            signal = "SELL"
-
-        else:
-
-            signal = "HOLD"
-
-        result.update({
-            "signal": signal,
-            "fast_ema": round(
-                current_fast,
-                2
-            ),
-            "slow_ema": round(
-                current_slow,
-                2
-            ),
-        })
-
-        return result
-
-    # ==========================================
     # SMA + EMA TREND
-    # ==========================================
+    # ======================================
 
     if strategy_type == "SMA_EMA_TREND":
 
@@ -323,156 +151,88 @@ def generate_signal(
             )
         )
 
+
+        # Validate
         if fast_period >= slow_period:
 
             raise ValueError(
-                "Fast period must be smaller than slow period"
+                "Fast period must be smaller "
+                "than slow period"
             )
 
-        if len(close) < slow_period:
+
+        # Check enough data
+        if len(df) < slow_period:
 
             return result
 
-        fast_ema = calculate_ema(
-            close,
-            fast_period
+
+        # Calculate indicators
+        df = calculate_sma_ema(
+            history=df,
+            fast_period=fast_period,
+            slow_period=slow_period,
         )
 
-        slow_sma = calculate_sma(
-            close,
-            slow_period
-        )
 
-        current_fast_ema = float(
-            fast_ema.iloc[-1]
-        )
+        # Current values
+        fast_ema = df[
+            "fast_ema"
+        ].iloc[-1]
 
-        current_slow_sma = float(
-            slow_sma.iloc[-1]
-        )
+        slow_sma = df[
+            "slow_sma"
+        ].iloc[-1]
 
+
+        # Check NaN
         if (
-            current_price >
-            current_fast_ema
-            and
-            current_fast_ema >
-            current_slow_sma
+            pd.isna(fast_ema)
+            or pd.isna(slow_sma)
         ):
-
-            signal = "BUY"
-
-        elif (
-            current_price <
-            current_fast_ema
-            and
-            current_fast_ema <
-            current_slow_sma
-        ):
-
-            signal = "SELL"
-
-        else:
-
-            signal = "HOLD"
-
-        result.update({
-            "signal": signal,
-            "fast_ema": round(
-                current_fast_ema,
-                2
-            ),
-            "slow_sma": round(
-                current_slow_sma,
-                2
-            ),
-        })
-
-        return result
-
-    # ==========================================
-    # RSI
-    # ==========================================
-
-    if strategy_type == "RSI":
-
-        period = int(
-            parameters.get(
-                "period",
-                14
-            )
-        )
-
-        oversold = float(
-            parameters.get(
-                "oversold",
-                30
-            )
-        )
-
-        overbought = float(
-            parameters.get(
-                "overbought",
-                70
-            )
-        )
-
-        if len(close) < period + 1:
 
             return result
 
-        delta = close.diff()
 
-        gain = delta.clip(
-            lower=0
+        # Generate signal
+        signal = get_sma_ema_signal(
+
+            close=current_price,
+
+            fast_ema=float(
+                fast_ema
+            ),
+
+            slow_sma=float(
+                slow_sma
+            ),
         )
 
-        loss = -delta.clip(
-            upper=0
-        )
 
-        avg_gain = gain.rolling(
-            period
-        ).mean()
-
-        avg_loss = loss.rolling(
-            period
-        ).mean()
-
-        rs = avg_gain / avg_loss
-
-        rsi = 100 - (
-            100 / (1 + rs)
-        )
-
-        current_rsi = float(
-            rsi.iloc[-1]
-        )
-
-        if current_rsi <= oversold:
-
-            signal = "BUY"
-
-        elif current_rsi >= overbought:
-
-            signal = "SELL"
-
-        else:
-
-            signal = "HOLD"
-
+        # Update result
         result.update({
+
             "signal": signal,
-            "rsi": round(
-                current_rsi,
+
+            "fast_ema": round(
+                float(fast_ema),
                 2
             ),
+
+            "slow_sma": round(
+                float(slow_sma),
+                2
+            ),
+
         })
+
 
         return result
 
-    # ==========================================
+
+    # ======================================
     # MACD
-    # ==========================================
+    # ======================================
 
     if strategy_type == "MACD":
 
@@ -497,89 +257,135 @@ def generate_signal(
             )
         )
 
+
+        # Validate
         if fast_period >= slow_period:
 
             raise ValueError(
-                "MACD fast period must be smaller than slow period"
+                "MACD fast period must be "
+                "smaller than slow period"
             )
 
-        if len(close) < slow_period + signal_period:
+
+        # Need enough data
+        if len(df) < slow_period + 2:
 
             return result
 
-        fast_ema = calculate_ema(
-            close,
-            fast_period
+
+        # Calculate MACD
+        df = calculate_macd(
+
+            history=df,
+
+            fast_period=fast_period,
+
+            slow_period=slow_period,
+
+            signal_period=signal_period,
+
         )
 
-        slow_ema = calculate_ema(
-            close,
-            slow_period
-        )
 
-        macd = (
-            fast_ema -
-            slow_ema
-        )
+        # Current values
+        current_macd = df[
+            "macd"
+        ].iloc[-1]
 
-        signal_line = calculate_ema(
-            macd,
-            signal_period
-        )
+        current_signal = df[
+            "macd_signal"
+        ].iloc[-1]
 
-        current_macd = float(
-            macd.iloc[-1]
-        )
 
-        current_signal = float(
-            signal_line.iloc[-1]
-        )
+        # Previous values
+        previous_macd = df[
+            "macd"
+        ].iloc[-2]
 
-        previous_macd = float(
-            macd.iloc[-2]
-        )
+        previous_signal = df[
+            "macd_signal"
+        ].iloc[-2]
 
-        previous_signal = float(
-            signal_line.iloc[-2]
-        )
 
-        if (
-            previous_macd <= previous_signal
-            and
-            current_macd > current_signal
+        # Check NaN
+        values = [
+
+            current_macd,
+
+            current_signal,
+
+            previous_macd,
+
+            previous_signal,
+
+        ]
+
+
+        if any(
+            pd.isna(value)
+            for value in values
         ):
 
-            signal = "BUY"
+            return result
 
-        elif (
-            previous_macd >= previous_signal
-            and
-            current_macd < current_signal
-        ):
 
-            signal = "SELL"
+        # Generate signal
+        signal = get_macd_signal(
 
-        else:
+            current_macd=float(
+                current_macd
+            ),
 
-            signal = "HOLD"
+            current_signal=float(
+                current_signal
+            ),
 
+            previous_macd=float(
+                previous_macd
+            ),
+
+            previous_signal=float(
+                previous_signal
+            ),
+
+        )
+
+
+        # Histogram
+        macd_hist = df[
+            "macd_hist"
+        ].iloc[-1]
+
+
+        # Update result
         result.update({
+
             "signal": signal,
+
             "macd": round(
-                current_macd,
+                float(current_macd),
                 4
             ),
+
             "macd_signal": round(
-                current_signal,
+                float(current_signal),
                 4
             ),
+
+            "macd_hist": round(
+                float(macd_hist),
+                4
+            ),
+
         })
+
 
         return result
 
-    # ==========================================
-    # Bollinger Bands
-    # ==========================================
+
+    # ======================================
+    # BOLLINGER BANDS
+    # ======================================
 
     if strategy_type == "BOLLINGER_BANDS":
 
@@ -593,78 +399,120 @@ def generate_signal(
         std_deviation = float(
             parameters.get(
                 "std_deviation",
-                2
+                2.0
             )
         )
 
-        if len(close) < period:
+
+        # Validate
+        if period < 2:
+
+            raise ValueError(
+                "Bollinger period must "
+                "be at least 2"
+            )
+
+
+        if len(df) < period:
 
             return result
 
-        middle = close.rolling(
-            period
-        ).mean()
 
-        std = close.rolling(
-            period
-        ).std()
+        # Calculate Bollinger Bands
+        df = calculate_bollinger_bands(
 
-        upper = (
-            middle +
-            std_deviation * std
+            history=df,
+
+            period=period,
+
+            std_deviation=std_deviation,
+
         )
 
-        lower = (
-            middle -
-            std_deviation * std
+
+        # Get values
+        middle = df[
+            "bollinger_middle"
+        ].iloc[-1]
+
+        upper = df[
+            "bollinger_upper"
+        ].iloc[-1]
+
+        lower = df[
+            "bollinger_lower"
+        ].iloc[-1]
+
+
+        # Check NaN
+        values = [
+
+            middle,
+
+            upper,
+
+            lower,
+
+        ]
+
+
+        if any(
+            pd.isna(value)
+            for value in values
+        ):
+
+            return result
+
+
+        # Generate signal
+        signal = get_bollinger_signal(
+
+            close=current_price,
+
+            bollinger_upper=float(
+                upper
+            ),
+
+            bollinger_lower=float(
+                lower
+            ),
+
         )
 
-        current_middle = float(
-            middle.iloc[-1]
-        )
 
-        current_upper = float(
-            upper.iloc[-1]
-        )
-
-        current_lower = float(
-            lower.iloc[-1]
-        )
-
-        if current_price <= current_lower:
-
-            signal = "BUY"
-
-        elif current_price >= current_upper:
-
-            signal = "SELL"
-
-        else:
-
-            signal = "HOLD"
-
+        # Update result
         result.update({
+
             "signal": signal,
+
             "bollinger_middle": round(
-                current_middle,
+                float(middle),
                 2
             ),
+
             "bollinger_upper": round(
-                current_upper,
+                float(upper),
                 2
             ),
+
             "bollinger_lower": round(
-                current_lower,
+                float(lower),
                 2
             ),
+
         })
+
 
         return result
 
-    # ==========================================
-    # Unknown strategy
-    # ==========================================
+
+    # ======================================
+    # UNKNOWN STRATEGY
+    # ======================================
 
     raise ValueError(
-        f"Unsupported strategy type: {strategy_type}"
+
+        f"Unsupported strategy type: "
+        f"{strategy_type}"
+
     )

@@ -28,7 +28,7 @@ class BacktestRequest(BaseModel):
         default_factory=dict
     )
 
-    initial_cash: float = 100000.0
+    initial_cash: float = 1000000.0
 
     stop_loss_percent: Optional[float] = None
 
