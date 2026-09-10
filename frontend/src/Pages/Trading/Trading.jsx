@@ -662,7 +662,7 @@ export default function Trading() {
 
                 <p className="text-xl font-bold text-white mt-2">
                   {Number(
-                    strategyResult.fast_ema || 0
+                    strategyResult.indicators?.fast_ema || 0
                   ).toFixed(2)}
                 </p>
 
@@ -679,7 +679,7 @@ export default function Trading() {
 
                 <p className="text-xl font-bold text-white mt-2">
                   {Number(
-                    strategyResult.slow_sma || 0
+                    strategyResult.indicators?.slow_sma || 0
                   ).toFixed(2)}
                 </p>
 
