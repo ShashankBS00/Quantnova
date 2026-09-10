@@ -178,6 +178,23 @@ const STRATEGIES = {
     ],
   },
 
+
+  VWAP_EMA: {
+    label: "VWAP + EMA",
+    description:
+      "Buy when price crosses above VWAP and is above EMA. Sell when price crosses below VWAP and is below EMA.",
+
+    fields: [
+      {
+        name: "ema_period",
+        label: "EMA Period",
+        defaultValue: 20,
+        min: 2,
+        max: 200,
+      },
+    ],
+  },
+
 };
 
 

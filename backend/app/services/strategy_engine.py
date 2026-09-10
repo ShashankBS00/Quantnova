@@ -20,6 +20,11 @@ from app.services.strategies.bollinger_bands import (
     get_bollinger_signal,
 )
 
+from app.services.strategies.VWAP_ema import (
+    calculate_vwap_ema,
+    get_vwap_ema_signal,
+)
+
 
 # ==========================================
 # Default Result
@@ -44,6 +49,10 @@ def default_result():
         "bollinger_middle": 0.0,
         "bollinger_upper": 0.0,
         "bollinger_lower": 0.0,
+
+        # VWAP + EMA
+        "vwap": 0.0,
+        "ema": 0.0,
     }
 
 
@@ -497,6 +506,110 @@ def generate_signal(
 
             "bollinger_lower": round(
                 float(lower),
+                2
+            ),
+
+        })
+
+
+        return result
+
+
+    # ======================================
+    # VWAP + EMA
+    # ======================================
+
+    if strategy_type == "VWAP_EMA":
+
+        ema_period = int(
+            parameters.get(
+                "ema_period",
+                20
+            )
+        )
+
+
+        # Validate
+        if ema_period < 2:
+
+            raise ValueError(
+                "EMA period must be "
+                "at least 2"
+            )
+
+
+        # Need at least two rows for crossover detection
+        if len(df) < max(ema_period, 2):
+
+            return result
+
+
+        # Require Volume column
+        if "Volume" not in df.columns:
+
+            return result
+
+
+        # Calculate indicators
+        df = calculate_vwap_ema(
+            history=df,
+            ema_period=ema_period,
+        )
+
+
+        # Current values
+        current_vwap = df["vwap"].iloc[-1]
+        current_ema = df["ema"].iloc[-1]
+
+        # Previous values
+        previous_close = df["Close"].iloc[-2]
+        previous_vwap = df["vwap"].iloc[-2]
+
+
+        # Check NaN
+        values = [
+            current_vwap,
+            current_ema,
+            previous_close,
+            previous_vwap,
+        ]
+
+        if any(
+            pd.isna(value)
+            for value in values
+        ):
+
+            return result
+
+
+        # Generate signal
+        signal = get_vwap_ema_signal(
+
+            close=current_price,
+
+            vwap=float(current_vwap),
+
+            ema=float(current_ema),
+
+            previous_close=float(previous_close),
+
+            previous_vwap=float(previous_vwap),
+
+        )
+
+
+        # Update result
+        result.update({
+
+            "signal": signal,
+
+            "vwap": round(
+                float(current_vwap),
+                2
+            ),
+
+            "ema": round(
+                float(current_ema),
                 2
             ),
 

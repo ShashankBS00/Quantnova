@@ -370,6 +370,54 @@ def calculate_strategy_indicators(
         return history
 
 
+    # =====================================================
+    # VWAP + EMA
+    # =====================================================
+
+    if strategy_type == "VWAP_EMA":
+
+        ema_period = int(
+            parameters.get(
+                "ema_period",
+                20,
+            )
+        )
+
+        for col in ("High", "Low", "Close", "Volume"):
+            history[col] = pd.to_numeric(
+                history[col], errors="coerce"
+            )
+
+        typical_price = (
+            history["High"] +
+            history["Low"] +
+            history["Close"]
+        ) / 3.0
+
+        if hasattr(history.index, "date"):
+            history["_date"] = history.index.date
+            history["_tp_vol"] = typical_price * history["Volume"]
+            history["_cum_tp_vol"] = history.groupby("_date")["_tp_vol"].cumsum()
+            history["_cum_vol"] = history.groupby("_date")["Volume"].cumsum()
+            history["vwap"] = history["_cum_tp_vol"] / history["_cum_vol"]
+            history.drop(
+                columns=["_date", "_tp_vol", "_cum_tp_vol", "_cum_vol"],
+                inplace=True,
+            )
+        else:
+            cum_tp_vol = (typical_price * history["Volume"]).cumsum()
+            cum_vol = history["Volume"].cumsum()
+            history["vwap"] = cum_tp_vol / cum_vol
+
+        history["ema"] = (
+            history["Close"]
+            .ewm(span=ema_period, adjust=False)
+            .mean()
+        )
+
+        return history
+
+
     raise ValueError(
         f"Unsupported strategy type: "
         f"{strategy_type}"
@@ -653,6 +701,52 @@ def get_strategy_signal(
         return "HOLD"
 
 
+    # =====================================================
+    # VWAP + EMA
+    # =====================================================
+
+    if strategy_type == "VWAP_EMA":
+
+        vwap = row.get("vwap", float("nan"))
+        ema = row.get("ema", float("nan"))
+
+        if (
+            pd.isna(vwap)
+            or pd.isna(ema)
+            or index < 1
+        ):
+            return "HOLD"
+
+        previous_close = float(
+            history.iloc[index - 1]["Close"]
+        )
+
+        previous_vwap = history.iloc[
+            index - 1
+        ].get("vwap", float("nan"))
+
+        if pd.isna(previous_vwap):
+            return "HOLD"
+
+        crossed_above = (
+            previous_close <= float(previous_vwap)
+            and close > float(vwap)
+        )
+
+        crossed_below = (
+            previous_close >= float(previous_vwap)
+            and close < float(vwap)
+        )
+
+        if crossed_above and close > float(ema):
+            return "BUY"
+
+        if crossed_below and close < float(ema):
+            return "SELL"
+
+        return "HOLD"
+
+
     raise ValueError(
         f"Unsupported strategy type: "
         f"{strategy_type}"
@@ -718,6 +812,15 @@ def run_strategy_backtest(
         minimum_period = int(
             parameters.get(
                 "period",
+                20,
+            )
+        )
+
+    elif strategy_type == "VWAP_EMA":
+
+        minimum_period = int(
+            parameters.get(
+                "ema_period",
                 20,
             )
         )

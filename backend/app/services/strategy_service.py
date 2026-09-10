@@ -67,6 +67,7 @@ def create_strategy(
         "RSI",
         "MACD",
         "BOLLINGER_BANDS",
+        "VWAP_EMA",
     ]
 
     if strategy_type not in allowed_strategies:
@@ -509,6 +510,36 @@ def create_strategy(
         parameters = {
             "period": period,
             "std_deviation": std_deviation,
+        }
+
+    # ======================================
+    # VWAP + EMA
+    # ======================================
+
+    elif strategy_type == "VWAP_EMA":
+
+        ema_period = parameters.get(
+            "ema_period",
+            20,
+        )
+
+        try:
+            ema_period = int(ema_period)
+
+        except (TypeError, ValueError):
+
+            raise ValueError(
+                "Invalid VWAP + EMA parameters"
+            )
+
+        if ema_period < 2:
+
+            raise ValueError(
+                "EMA period must be at least 2"
+            )
+
+        parameters = {
+            "ema_period": ema_period,
         }
 
     # ======================================

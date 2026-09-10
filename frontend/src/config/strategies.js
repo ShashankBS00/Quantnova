@@ -169,6 +169,26 @@ export const strategyTypes = [
       },
     ],
   },
+
+  // ==========================================
+  // VWAP + EMA
+  // ==========================================
+
+  {
+    value: "VWAP_EMA",
+    label: "VWAP + EMA",
+    description:
+      "Uses VWAP crossover confirmed by EMA trend. BUY when price crosses above VWAP and is above EMA; SELL when price crosses below VWAP and is below EMA.",
+    fields: [
+      {
+        name: "ema_period",
+        label: "EMA Period",
+        type: "number",
+        defaultValue: 20,
+        min: 2,
+      },
+    ],
+  },
 ];
 
 
