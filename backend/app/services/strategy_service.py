@@ -68,6 +68,7 @@ def create_strategy(
         "MACD",
         "BOLLINGER_BANDS",
         "VWAP_EMA",
+        "SUPERTREND",
     ]
 
     if strategy_type not in allowed_strategies:
@@ -540,6 +541,49 @@ def create_strategy(
 
         parameters = {
             "ema_period": ema_period,
+        }
+
+    # ======================================
+    # SUPERTREND
+    # ======================================
+
+    elif strategy_type == "SUPERTREND":
+
+        period = parameters.get(
+            "period",
+            10,
+        )
+
+        multiplier = parameters.get(
+            "multiplier",
+            3.0,
+        )
+
+        try:
+            period = int(period)
+            multiplier = float(multiplier)
+
+        except (TypeError, ValueError):
+
+            raise ValueError(
+                "Invalid Supertrend parameters"
+            )
+
+        if period < 2:
+
+            raise ValueError(
+                "Supertrend period must be at least 2"
+            )
+
+        if multiplier <= 0:
+
+            raise ValueError(
+                "Supertrend multiplier must be greater than 0"
+            )
+
+        parameters = {
+            "period": period,
+            "multiplier": multiplier,
         }
 
     # ======================================

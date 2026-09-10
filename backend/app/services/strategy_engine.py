@@ -25,6 +25,11 @@ from app.services.strategies.VWAP_ema import (
     get_vwap_ema_signal,
 )
 
+from app.services.strategies.Supertrend import (
+    calculate_supertrend,
+    get_supertrend_signal,
+)
+
 
 # ==========================================
 # Default Result
@@ -53,6 +58,10 @@ def default_result():
         # VWAP + EMA
         "vwap": 0.0,
         "ema": 0.0,
+
+        # Supertrend
+        "supertrend": 0.0,
+        "supertrend_trend": 0,
     }
 
 
@@ -612,6 +621,106 @@ def generate_signal(
                 float(current_ema),
                 2
             ),
+
+        })
+
+
+        return result
+
+
+    # ======================================
+    # SUPERTREND
+    # ======================================
+
+    if strategy_type == "SUPERTREND":
+
+        period = int(
+            parameters.get(
+                "period",
+                10
+            )
+        )
+
+        multiplier = float(
+            parameters.get(
+                "multiplier",
+                3.0
+            )
+        )
+
+
+        # Validate
+        if period < 2:
+
+            raise ValueError(
+                "Supertrend period must be "
+                "at least 2"
+            )
+
+
+        if multiplier <= 0:
+
+            raise ValueError(
+                "Supertrend multiplier must "
+                "be greater than 0"
+            )
+
+
+        # Need enough data
+        if len(df) < period + 2:
+
+            return result
+
+
+        # Require High/Low columns
+        if "High" not in df.columns or "Low" not in df.columns:
+
+            return result
+
+
+        # Calculate Supertrend
+        df = calculate_supertrend(
+            history=df,
+            period=period,
+            multiplier=multiplier,
+        )
+
+
+        # Current values
+        current_supertrend = df["supertrend"].iloc[-1]
+        current_trend = int(df["supertrend_trend"].iloc[-1])
+
+        # Previous trend
+        previous_trend = int(df["supertrend_trend"].iloc[-2])
+
+
+        # Check NaN
+        if pd.isna(current_supertrend):
+
+            return result
+
+
+        # Generate signal
+        signal = get_supertrend_signal(
+
+            trend=current_trend,
+
+            previous_trend=previous_trend,
+
+        )
+
+
+        # Update result
+        result.update({
+
+            "signal": signal,
+
+            "supertrend": round(
+                float(current_supertrend),
+                2
+            ),
+
+            "supertrend_trend": current_trend,
 
         })
 

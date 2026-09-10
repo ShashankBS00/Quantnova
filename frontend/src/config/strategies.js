@@ -189,6 +189,34 @@ export const strategyTypes = [
       },
     ],
   },
+
+  // ==========================================
+  // Supertrend
+  // ==========================================
+
+  {
+    value: "SUPERTREND",
+    label: "Supertrend",
+    description:
+      "Uses ATR-based Supertrend indicator. BUY when price crosses above the Supertrend line; SELL when price crosses below it.",
+    fields: [
+      {
+        name: "period",
+        label: "ATR Period",
+        type: "number",
+        defaultValue: 10,
+        min: 2,
+      },
+      {
+        name: "multiplier",
+        label: "Multiplier",
+        type: "number",
+        defaultValue: 3,
+        min: 0.1,
+        step: 0.1,
+      },
+    ],
+  },
 ];
 
 

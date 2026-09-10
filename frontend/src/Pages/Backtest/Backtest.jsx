@@ -195,6 +195,31 @@ const STRATEGIES = {
     ],
   },
 
+
+  SUPERTREND: {
+    label: "Supertrend",
+    description:
+      "Buy when price crosses above the Supertrend line (trend turns bullish). Sell when price crosses below the Supertrend line (trend turns bearish).",
+
+    fields: [
+      {
+        name: "period",
+        label: "ATR Period",
+        defaultValue: 10,
+        min: 2,
+        max: 100,
+      },
+      {
+        name: "multiplier",
+        label: "Multiplier",
+        defaultValue: 3,
+        min: 0.5,
+        max: 10,
+        step: 0.5,
+      },
+    ],
+  },
+
 };
 
 

@@ -418,6 +418,98 @@ def calculate_strategy_indicators(
         return history
 
 
+    # =====================================================
+    # SUPERTREND
+    # =====================================================
+
+    if strategy_type == "SUPERTREND":
+
+        period = int(
+            parameters.get(
+                "period",
+                10,
+            )
+        )
+
+        multiplier = float(
+            parameters.get(
+                "multiplier",
+                3.0,
+            )
+        )
+
+        for col in ("High", "Low", "Close"):
+            history[col] = pd.to_numeric(
+                history[col], errors="coerce"
+            )
+
+        high = history["High"]
+        low = history["Low"]
+        prev_close = history["Close"].shift(1)
+
+        tr = pd.concat(
+            [
+                high - low,
+                (high - prev_close).abs(),
+                (low - prev_close).abs(),
+            ],
+            axis=1,
+        ).max(axis=1)
+
+        atr = tr.ewm(
+            span=(2 * period - 1),
+            adjust=False,
+            min_periods=period,
+        ).mean()
+
+        hl2 = (high + low) / 2.0
+        basic_upper = hl2 + multiplier * atr
+        basic_lower = hl2 - multiplier * atr
+
+        import numpy as np
+        n = len(history)
+        final_upper = np.full(n, np.nan)
+        final_lower = np.full(n, np.nan)
+        supertrend = np.full(n, np.nan)
+        trend = np.zeros(n, dtype=int)
+        close_arr = history["Close"].to_numpy()
+
+        for i in range(period, n):
+            bu = basic_upper.iloc[i]
+            bl = basic_lower.iloc[i]
+
+            final_upper[i] = (
+                bu if np.isnan(final_upper[i - 1]) or bu < final_upper[i - 1] or close_arr[i - 1] > final_upper[i - 1]
+                else final_upper[i - 1]
+            )
+            final_lower[i] = (
+                bl if np.isnan(final_lower[i - 1]) or bl > final_lower[i - 1] or close_arr[i - 1] < final_lower[i - 1]
+                else final_lower[i - 1]
+            )
+
+            prev_st = supertrend[i - 1]
+            if np.isnan(prev_st):
+                if close_arr[i] > final_upper[i]:
+                    supertrend[i] = final_lower[i]; trend[i] = 1
+                else:
+                    supertrend[i] = final_upper[i]; trend[i] = -1
+            elif prev_st == final_upper[i - 1]:
+                if close_arr[i] > final_upper[i]:
+                    supertrend[i] = final_lower[i]; trend[i] = 1
+                else:
+                    supertrend[i] = final_upper[i]; trend[i] = -1
+            else:
+                if close_arr[i] < final_lower[i]:
+                    supertrend[i] = final_upper[i]; trend[i] = -1
+                else:
+                    supertrend[i] = final_lower[i]; trend[i] = 1
+
+        history["supertrend"] = supertrend
+        history["supertrend_trend"] = trend
+
+        return history
+
+
     raise ValueError(
         f"Unsupported strategy type: "
         f"{strategy_type}"
@@ -747,6 +839,31 @@ def get_strategy_signal(
         return "HOLD"
 
 
+    # =====================================================
+    # SUPERTREND
+    # =====================================================
+
+    if strategy_type == "SUPERTREND":
+
+        st = row.get("supertrend", float("nan"))
+        current_trend = row.get("supertrend_trend", 0)
+
+        if pd.isna(st) or index < 1:
+            return "HOLD"
+
+        previous_trend = history.iloc[
+            index - 1
+        ].get("supertrend_trend", 0)
+
+        if previous_trend != 1 and int(current_trend) == 1:
+            return "BUY"
+
+        if previous_trend != -1 and int(current_trend) == -1:
+            return "SELL"
+
+        return "HOLD"
+
+
     raise ValueError(
         f"Unsupported strategy type: "
         f"{strategy_type}"
@@ -824,6 +941,15 @@ def run_strategy_backtest(
                 20,
             )
         )
+
+    elif strategy_type == "SUPERTREND":
+
+        minimum_period = int(
+            parameters.get(
+                "period",
+                10,
+            )
+        ) + 2
 
     elif strategy_type == "MACD":
 
