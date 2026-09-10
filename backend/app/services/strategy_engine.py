@@ -30,6 +30,11 @@ from app.services.strategies.Supertrend import (
     get_supertrend_signal,
 )
 
+from app.services.strategies.ADX_EMA import (
+    calculate_adx_ema,
+    get_adx_ema_signal,
+)
+
 
 # ==========================================
 # Default Result
@@ -62,6 +67,11 @@ def default_result():
         # Supertrend
         "supertrend": 0.0,
         "supertrend_trend": 0,
+
+        # ADX + EMA
+        "adx": 0.0,
+        "plus_di": 0.0,
+        "minus_di": 0.0,
     }
 
 
@@ -721,6 +731,126 @@ def generate_signal(
             ),
 
             "supertrend_trend": current_trend,
+
+        })
+
+
+        return result
+
+
+    # ======================================
+    # ADX + EMA
+    # ======================================
+
+    if strategy_type == "ADX_EMA":
+
+        adx_period = int(
+            parameters.get(
+                "adx_period",
+                14
+            )
+        )
+
+        ema_period = int(
+            parameters.get(
+                "ema_period",
+                20
+            )
+        )
+
+        adx_threshold = float(
+            parameters.get(
+                "adx_threshold",
+                25.0
+            )
+        )
+
+
+        # Validate
+        if adx_period < 2:
+
+            raise ValueError(
+                "ADX period must be at least 2"
+            )
+
+        if ema_period < 2:
+
+            raise ValueError(
+                "EMA period must be at least 2"
+            )
+
+
+        # Need enough data
+        if len(df) < max(adx_period * 2, ema_period) + 2:
+
+            return result
+
+
+        # Require High/Low columns
+        if "High" not in df.columns or "Low" not in df.columns:
+
+            return result
+
+
+        # Calculate indicators
+        df = calculate_adx_ema(
+            history=df,
+            adx_period=adx_period,
+            ema_period=ema_period,
+        )
+
+
+        # Current values
+        current_adx = df["adx"].iloc[-1]
+        current_ema = df["ema"].iloc[-1]
+        current_plus_di = df["plus_di"].iloc[-1]
+        current_minus_di = df["minus_di"].iloc[-1]
+
+        # Previous values
+        previous_close = df["Close"].iloc[-2]
+        previous_ema = df["ema"].iloc[-2]
+
+
+        # Check NaN
+        if any(
+            pd.isna(v) for v in [
+                current_adx,
+                current_ema,
+                previous_close,
+                previous_ema,
+            ]
+        ):
+            return result
+
+
+        # Generate signal
+        signal = get_adx_ema_signal(
+
+            close=current_price,
+
+            adx=float(current_adx),
+
+            ema=float(current_ema),
+
+            previous_close=float(previous_close),
+
+            previous_ema=float(previous_ema),
+
+            adx_threshold=adx_threshold,
+
+        )
+
+
+        # Update result
+        result.update({
+
+            "signal": signal,
+
+            "adx": round(float(current_adx), 2),
+
+            "plus_di": round(float(current_plus_di), 2),
+
+            "minus_di": round(float(current_minus_di), 2),
 
         })
 

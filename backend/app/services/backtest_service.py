@@ -510,6 +510,74 @@ def calculate_strategy_indicators(
         return history
 
 
+    # =====================================================
+    # ADX + EMA
+    # =====================================================
+
+    if strategy_type == "ADX_EMA":
+
+        adx_period = int(
+            parameters.get("adx_period", 14)
+        )
+
+        ema_period = int(
+            parameters.get("ema_period", 20)
+        )
+
+        for col in ("High", "Low", "Close"):
+            history[col] = pd.to_numeric(
+                history[col], errors="coerce"
+            )
+
+        high = history["High"]
+        low = history["Low"]
+        close = history["Close"]
+        prev_close = close.shift(1)
+        prev_high = high.shift(1)
+        prev_low = low.shift(1)
+
+        up_move = high - prev_high
+        down_move = prev_low - low
+
+        plus_dm = up_move.where(
+            (up_move > down_move) & (up_move > 0), 0.0
+        )
+        minus_dm = down_move.where(
+            (down_move > up_move) & (down_move > 0), 0.0
+        )
+
+        tr = pd.concat(
+            [
+                high - low,
+                (high - prev_close).abs(),
+                (low - prev_close).abs(),
+            ],
+            axis=1,
+        ).max(axis=1)
+
+        def _ws(s, p):
+            return s.ewm(
+                span=(2 * p - 1), adjust=False, min_periods=p
+            ).mean()
+
+        atr = _ws(tr, adx_period)
+        plus_di = 100.0 * _ws(plus_dm, adx_period) / atr
+        minus_di = 100.0 * _ws(minus_dm, adx_period) / atr
+
+        di_sum = plus_di + minus_di
+        dx = (100.0 * (plus_di - minus_di).abs() / di_sum).where(
+            di_sum != 0, 0.0
+        )
+        history["adx"] = _ws(dx, adx_period)
+        history["plus_di"] = plus_di
+        history["minus_di"] = minus_di
+        history["ema"] = close.ewm(
+            span=ema_period, adjust=False
+        ).mean()
+
+        return history
+
+
     raise ValueError(
         f"Unsupported strategy type: "
         f"{strategy_type}"
@@ -864,6 +932,43 @@ def get_strategy_signal(
         return "HOLD"
 
 
+    # =====================================================
+    # ADX + EMA
+    # =====================================================
+
+    if strategy_type == "ADX_EMA":
+
+        adx = row.get("adx", float("nan"))
+        ema = row.get("ema", float("nan"))
+        adx_threshold = float(
+            parameters.get("adx_threshold", 25.0)
+        )
+
+        if pd.isna(adx) or pd.isna(ema) or index < 1:
+            return "HOLD"
+
+        if float(adx) <= adx_threshold:
+            return "HOLD"
+
+        previous_close = float(
+            history.iloc[index - 1]["Close"]
+        )
+        previous_ema = history.iloc[index - 1].get(
+            "ema", float("nan")
+        )
+
+        if pd.isna(previous_ema):
+            return "HOLD"
+
+        if previous_close <= float(previous_ema) and close > float(ema):
+            return "BUY"
+
+        if previous_close >= float(previous_ema) and close < float(ema):
+            return "SELL"
+
+        return "HOLD"
+
+
     raise ValueError(
         f"Unsupported strategy type: "
         f"{strategy_type}"
@@ -950,6 +1055,15 @@ def run_strategy_backtest(
                 10,
             )
         ) + 2
+
+    elif strategy_type == "ADX_EMA":
+
+        minimum_period = int(
+            parameters.get(
+                "adx_period",
+                14,
+            )
+        ) * 2 + 2
 
     elif strategy_type == "MACD":
 

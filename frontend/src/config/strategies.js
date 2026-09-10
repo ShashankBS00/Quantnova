@@ -217,6 +217,41 @@ export const strategyTypes = [
       },
     ],
   },
+
+  // ==========================================
+  // ADX + EMA
+  // ==========================================
+
+  {
+    value: "ADX_EMA",
+    label: "ADX + EMA",
+    description:
+      "Uses ADX to confirm trend strength and EMA for direction. BUY when ADX > threshold and price crosses above EMA; SELL when ADX > threshold and price crosses below EMA.",
+    fields: [
+      {
+        name: "adx_period",
+        label: "ADX Period",
+        type: "number",
+        defaultValue: 14,
+        min: 2,
+      },
+      {
+        name: "ema_period",
+        label: "EMA Period",
+        type: "number",
+        defaultValue: 20,
+        min: 2,
+      },
+      {
+        name: "adx_threshold",
+        label: "ADX Threshold",
+        type: "number",
+        defaultValue: 25,
+        min: 1,
+        max: 100,
+      },
+    ],
+  },
 ];
 
 

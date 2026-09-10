@@ -8,14 +8,13 @@ export default {
     extend: {
       colors: {
         theme: {
-          base: "#5d5f68ff",
-          surface: "#12141a",
-          border: "#1f232d",
-          accent: "#f59e0b",
+          base: "#5b6178",
+          surface: "#ffffff",
+          border: "#e4e7f2",
+          accent: "#d97706",
         }
       }
     },
   },
   plugins: [],
 }
-

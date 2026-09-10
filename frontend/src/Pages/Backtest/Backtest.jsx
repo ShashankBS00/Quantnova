@@ -220,6 +220,37 @@ const STRATEGIES = {
     ],
   },
 
+
+  ADX_EMA: {
+    label: "ADX + EMA",
+    description:
+      "Buy when ADX exceeds the threshold (strong trend) and price crosses above EMA. Sell when ADX exceeds the threshold and price crosses below EMA.",
+
+    fields: [
+      {
+        name: "adx_period",
+        label: "ADX Period",
+        defaultValue: 14,
+        min: 2,
+        max: 100,
+      },
+      {
+        name: "ema_period",
+        label: "EMA Period",
+        defaultValue: 20,
+        min: 2,
+        max: 200,
+      },
+      {
+        name: "adx_threshold",
+        label: "ADX Threshold",
+        defaultValue: 25,
+        min: 1,
+        max: 100,
+      },
+    ],
+  },
+
 };
 
 

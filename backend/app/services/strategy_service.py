@@ -69,6 +69,7 @@ def create_strategy(
         "BOLLINGER_BANDS",
         "VWAP_EMA",
         "SUPERTREND",
+        "ADX_EMA",
     ]
 
     if strategy_type not in allowed_strategies:
@@ -584,6 +585,51 @@ def create_strategy(
         parameters = {
             "period": period,
             "multiplier": multiplier,
+        }
+
+    # ======================================
+    # ADX + EMA
+    # ======================================
+
+    elif strategy_type == "ADX_EMA":
+
+        adx_period = parameters.get("adx_period", 14)
+        ema_period = parameters.get("ema_period", 20)
+        adx_threshold = parameters.get("adx_threshold", 25.0)
+
+        try:
+            adx_period = int(adx_period)
+            ema_period = int(ema_period)
+            adx_threshold = float(adx_threshold)
+
+        except (TypeError, ValueError):
+
+            raise ValueError(
+                "Invalid ADX + EMA parameters"
+            )
+
+        if adx_period < 2:
+
+            raise ValueError(
+                "ADX period must be at least 2"
+            )
+
+        if ema_period < 2:
+
+            raise ValueError(
+                "EMA period must be at least 2"
+            )
+
+        if not (1 <= adx_threshold <= 100):
+
+            raise ValueError(
+                "ADX threshold must be between 1 and 100"
+            )
+
+        parameters = {
+            "adx_period": adx_period,
+            "ema_period": ema_period,
+            "adx_threshold": adx_threshold,
         }
 
     # ======================================
