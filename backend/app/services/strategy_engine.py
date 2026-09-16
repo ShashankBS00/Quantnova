@@ -72,6 +72,15 @@ def default_result():
         "adx": 0.0,
         "plus_di": 0.0,
         "minus_di": 0.0,
+
+        # SMA Crossover / EMA Crossover
+        "fast_sma": 0.0,
+        "slow_sma": 0.0,
+        "fast_ema": 0.0,
+        "slow_ema": 0.0,
+
+        # RSI
+        "rsi": 0.0,
     }
 
 
@@ -157,6 +166,171 @@ def generate_signal(
         current_price,
         2
     )
+
+
+    # ======================================
+    # SMA CROSSOVER
+    # ======================================
+
+    if strategy_type == "SMA_CROSSOVER":
+
+        fast_period = int(
+            parameters.get("fast_period", 20)
+        )
+
+        slow_period = int(
+            parameters.get("slow_period", 50)
+        )
+
+        if fast_period >= slow_period:
+            raise ValueError(
+                "Fast period must be smaller than slow period"
+            )
+
+        if len(df) < slow_period:
+            return result
+
+        df["fast_sma"] = (
+            df["Close"].rolling(fast_period).mean()
+        )
+        df["slow_sma"] = (
+            df["Close"].rolling(slow_period).mean()
+        )
+
+        fast = df["fast_sma"].iloc[-1]
+        slow = df["slow_sma"].iloc[-1]
+        prev_fast = df["fast_sma"].iloc[-2]
+        prev_slow = df["slow_sma"].iloc[-2]
+
+        if any(pd.isna(v) for v in [fast, slow, prev_fast, prev_slow]):
+            return result
+
+        if prev_fast <= prev_slow and float(fast) > float(slow):
+            signal = "BUY"
+        elif prev_fast >= prev_slow and float(fast) < float(slow):
+            signal = "SELL"
+        else:
+            signal = "HOLD"
+
+        result.update({
+            "signal": signal,
+            "fast_sma": round(float(fast), 2),
+            "slow_sma": round(float(slow), 2),
+        })
+
+        return result
+
+
+    # ======================================
+    # EMA CROSSOVER
+    # ======================================
+
+    if strategy_type == "EMA_CROSSOVER":
+
+        fast_period = int(
+            parameters.get("fast_period", 20)
+        )
+
+        slow_period = int(
+            parameters.get("slow_period", 50)
+        )
+
+        if fast_period >= slow_period:
+            raise ValueError(
+                "Fast period must be smaller than slow period"
+            )
+
+        if len(df) < slow_period:
+            return result
+
+        df["fast_ema"] = (
+            df["Close"].ewm(span=fast_period, adjust=False).mean()
+        )
+        df["slow_ema"] = (
+            df["Close"].ewm(span=slow_period, adjust=False).mean()
+        )
+
+        fast = df["fast_ema"].iloc[-1]
+        slow = df["slow_ema"].iloc[-1]
+        prev_fast = df["fast_ema"].iloc[-2]
+        prev_slow = df["slow_ema"].iloc[-2]
+
+        if any(pd.isna(v) for v in [fast, slow, prev_fast, prev_slow]):
+            return result
+
+        if prev_fast <= prev_slow and float(fast) > float(slow):
+            signal = "BUY"
+        elif prev_fast >= prev_slow and float(fast) < float(slow):
+            signal = "SELL"
+        else:
+            signal = "HOLD"
+
+        result.update({
+            "signal": signal,
+            "fast_ema": round(float(fast), 2),
+            "slow_ema": round(float(slow), 2),
+        })
+
+        return result
+
+
+    # ======================================
+    # RSI
+    # ======================================
+
+    if strategy_type == "RSI":
+
+        period = int(
+            parameters.get("period", 14)
+        )
+
+        oversold = float(
+            parameters.get("oversold", 30)
+        )
+
+        overbought = float(
+            parameters.get("overbought", 70)
+        )
+
+        if len(df) < period + 1:
+            return result
+
+        delta = df["Close"].diff()
+        gain = delta.where(delta > 0, 0.0)
+        loss = (-delta).where(delta < 0, 0.0)
+
+        avg_gain = gain.ewm(
+            span=(2 * period - 1), adjust=False, min_periods=period
+        ).mean()
+        avg_loss = loss.ewm(
+            span=(2 * period - 1), adjust=False, min_periods=period
+        ).mean()
+
+        rs = avg_gain / avg_loss.replace(0, float("inf"))
+        rsi_series = 100.0 - (100.0 / (1.0 + rs))
+
+        current_rsi = rsi_series.iloc[-1]
+        prev_rsi = rsi_series.iloc[-2]
+
+        if pd.isna(current_rsi) or pd.isna(prev_rsi):
+            return result
+
+        rsi_val = float(current_rsi)
+        prev_rsi_val = float(prev_rsi)
+
+        if prev_rsi_val <= oversold and rsi_val > oversold:
+            signal = "BUY"
+        elif prev_rsi_val >= overbought and rsi_val < overbought:
+            signal = "SELL"
+        else:
+            signal = "HOLD"
+
+        result.update({
+            "signal": signal,
+            "rsi": round(rsi_val, 2),
+        })
+
+        return result
 
 
     # ======================================
