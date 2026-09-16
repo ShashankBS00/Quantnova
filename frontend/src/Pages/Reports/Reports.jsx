@@ -1,16 +1,9 @@
 import React, { useState } from "react";
 import { 
   FileText, 
-  Download, 
   Calendar, 
   Filter, 
-  TrendingUp, 
-  TrendingDown, 
-  CheckCircle2, 
-  AlertCircle, 
-  ArrowUpRight,
-  Printer,
-  Share2
+  CheckCircle2
 } from "lucide-react";
 
 const REPORTS_DATA = [
@@ -62,19 +55,10 @@ const REPORTS_DATA = [
 
 export default function Reports() {
   const [selectedType, setSelectedType] = useState("ALL");
-  const [downloadingId, setDownloadingId] = useState(null);
 
   const filteredReports = selectedType === "ALL" 
     ? REPORTS_DATA 
     : REPORTS_DATA.filter(r => r.type.toLowerCase().includes(selectedType.toLowerCase()));
-
-  const handleDownload = (id) => {
-    setDownloadingId(id);
-    setTimeout(() => {
-      setDownloadingId(null);
-      alert(`Report ${id} export generated successfully.`);
-    }, 900);
-  };
 
   return (
     <div className="mx-auto w-full max-w-[1580px] space-y-6 pb-12 select-none">
@@ -93,20 +77,6 @@ export default function Reports() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => window.print()}
-            className="px-4 py-2 rounded-xl bg-[#0a0b0e] border border-[#1f232d] hover:border-amber-500/40 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
-          >
-            <Printer size={14} className="text-amber-400" /> Print Summary
-          </button>
-          <button 
-            onClick={() => handleDownload("ALL-CSV")}
-            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold font-mono flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20"
-          >
-            <Download size={14} /> Export All (CSV)
-          </button>
-        </div>
       </div>
 
       {/* 2. Top Summary KPI Row */}
@@ -182,7 +152,6 @@ export default function Reports() {
                 <th className="py-3.5 px-4 text-center">Fills</th>
                 <th className="py-3.5 px-4 text-right">Net Return</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-5 text-center">Download</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1f232d] text-xs font-mono">
@@ -232,17 +201,7 @@ export default function Reports() {
                     </span>
                   </td>
 
-                  {/* Action */}
-                  <td className="py-4 px-5 text-center">
-                    <button
-                      onClick={() => handleDownload(report.id)}
-                      disabled={downloadingId === report.id}
-                      className="px-3 py-1.5 rounded-lg bg-[#0a0b0e] border border-[#1f232d] hover:border-amber-500 text-slate-300 hover:text-amber-400 text-xs font-semibold inline-flex items-center gap-1.5 transition-all"
-                    >
-                      <Download size={13} className={downloadingId === report.id ? "animate-bounce text-amber-400" : ""} />
-                      <span>{downloadingId === report.id ? "Saving..." : report.fileSize}</span>
-                    </button>
-                  </td>
+
                 </tr>
               ))}
             </tbody>

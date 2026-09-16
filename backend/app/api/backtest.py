@@ -15,6 +15,26 @@ router = APIRouter(
 
 
 # ==========================================
+# Supported Timeframes
+# ==========================================
+
+VALID_TIMEFRAMES = {
+    "1m",
+    "3m",
+    "5m",
+    "10m",
+    "15m",
+    "30m",
+    "1h",
+    "2h",
+    "4h",
+    "1d",
+    "1wk",
+    "1mo",
+}
+
+
+# ==========================================
 # Request Model
 # ==========================================
 
@@ -28,7 +48,9 @@ class BacktestRequest(BaseModel):
         default_factory=dict
     )
 
-    initial_cash: float = 1000000.0
+    timeframe: str = "1d"
+
+    initial_cash: float = 100000.0
 
     stop_loss_percent: Optional[float] = None
 
@@ -46,10 +68,26 @@ def run_backtest(
 
     try:
 
+        # ----------------------------------
+        # Normalize
+        # ----------------------------------
+
+        symbol = (
+            request.symbol
+            .strip()
+            .upper()
+        )
+
         strategy_type = (
             request.strategy_type
             .strip()
             .upper()
+        )
+
+        timeframe = (
+            request.timeframe
+            .strip()
+            .lower()
         )
 
         parameters = (
@@ -57,34 +95,62 @@ def run_backtest(
         )
 
         # ----------------------------------
+        # Validation
+        # ----------------------------------
+
+        if not symbol:
+
+            raise ValueError(
+                "Stock symbol is required"
+            )
+
+        if timeframe not in VALID_TIMEFRAMES:
+
+            raise ValueError(
+                "Invalid timeframe. "
+                f"Supported: "
+                f"{', '.join(VALID_TIMEFRAMES)}"
+            )
+
+        if request.initial_cash <= 0:
+
+            raise ValueError(
+                "Initial cash must be greater than 0"
+            )
+
+        # ----------------------------------
         # Fast / Slow periods
         # ----------------------------------
+        # Kept for compatibility with the
+        # existing request structure.
+        # The actual validation is handled
+        # inside the backtest service.
 
-        fast_period = int(
-            parameters.get(
-                "fast_period",
-                20,
-            )
-        )
+        if "fast_period" in parameters:
 
-        slow_period = int(
-            parameters.get(
-                "slow_period",
-                50,
+            int(
+                parameters["fast_period"]
             )
-        )
+
+        if "slow_period" in parameters:
+
+            int(
+                parameters["slow_period"]
+            )
 
         # ----------------------------------
-        # Run
+        # Run Backtest
         # ----------------------------------
 
         result = run_strategy_backtest(
 
-            symbol=request.symbol,
+            symbol=symbol,
 
             strategy_type=strategy_type,
 
             parameters=parameters,
+
+            timeframe=timeframe,
 
             initial_cash=request.initial_cash,
 

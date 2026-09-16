@@ -39,7 +39,7 @@ const navGroups = [
     items: [
       { name: "AI Prediction", path: "/prediction", icon: Brain },
       { name: "Performance Lab", path: "/trading-analytics", icon: BarChart3 },
-      { name: "Reports", path: "/reports", icon: FileText },
+      // { name: "Reports", path: "/reports", icon: FileText },
     ],
   },
   {
@@ -150,4 +150,4 @@ export default function Sidebar() {
     </aside>
   );
 }
-
+

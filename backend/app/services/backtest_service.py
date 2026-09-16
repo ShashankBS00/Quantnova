@@ -3,26 +3,192 @@ import pandas as pd
 
 
 # =========================================================
+# TIMEFRAME CONFIGURATION
+# =========================================================
+
+TIMEFRAME_CONFIG = {
+    "1m": {
+        "interval": "1m",
+        "period": "7d",
+    },
+
+    "3m": {
+        "interval": "3m",
+        "period": "60d",
+    },
+
+    "5m": {
+        "interval": "5m",
+        "period": "60d",
+    },
+
+    "10m": {
+        "interval": "10m",
+        "period": "60d",
+    },
+
+    "15m": {
+        "interval": "15m",
+        "period": "60d",
+    },
+
+    "30m": {
+        "interval": "30m",
+        "period": "60d",
+    },
+
+    "1h": {
+        "interval": "1h",
+        "period": "730d",
+    },
+
+    "2h": {
+        "interval": "2h",
+        "period": "730d",
+    },
+
+    "4h": {
+        "interval": "4h",
+        "period": "730d",
+    },
+
+    "1d": {
+        "interval": "1d",
+        "period": "1y",
+    },
+
+    "1wk": {
+        "interval": "1wk",
+        "period": "5y",
+    },
+
+    "1mo": {
+        "interval": "1mo",
+        "period": "10y",
+    },
+}
+
+
+# =========================================================
+# SYMBOL NORMALIZATION
+# =========================================================
+
+SYMBOL_MAP = {
+    "NIFTY": "^NSEI",
+    "NIFTY50": "^NSEI",
+    "NIFTY 50": "^NSEI",
+
+    "BANKNIFTY": "^NSEBANK",
+    "NIFTYBANK": "^NSEBANK",
+    "NIFTY BANK": "^NSEBANK",
+
+    "SENSEX": "^BSESN",
+}
+
+
+def normalize_symbol(symbol: str) -> str:
+
+    symbol = (
+        str(symbol)
+        .strip()
+        .upper()
+    )
+
+    if not symbol:
+
+        raise ValueError(
+            "Stock symbol is required"
+        )
+
+    # NIFTY / BANKNIFTY / SENSEX
+    if symbol in SYMBOL_MAP:
+
+        return SYMBOL_MAP[symbol]
+
+    # Already Yahoo index symbol
+    if symbol.startswith("^"):
+
+        return symbol
+
+    # Indian stock
+    if "." not in symbol:
+
+        return f"{symbol}.NS"
+
+    return symbol
+
+
+# =========================================================
 # LOAD MARKET DATA
 # =========================================================
 
 def load_market_data(
     symbol: str,
     minimum_period: int,
+    timeframe: str = "1d",
 ):
-    history = yf.download(
-        symbol,
-        period="1y",
-        auto_adjust=False,
-        progress=False,
+
+    timeframe = (
+        str(timeframe)
+        .strip()
+        .lower()
     )
 
-    if history.empty:
+    if timeframe not in TIMEFRAME_CONFIG:
+
         raise ValueError(
-            f"No market data found for {symbol}"
+            "Unsupported timeframe: "
+            f"{timeframe}"
         )
 
+    yahoo_symbol = normalize_symbol(
+        symbol
+    )
+
+    config = TIMEFRAME_CONFIG[
+        timeframe
+    ]
+
+    interval = config["interval"]
+    period = config["period"]
+
+    print(
+        f"🌐 Backtest data: "
+        f"{yahoo_symbol} | "
+        f"timeframe={timeframe} | "
+        f"interval={interval} | "
+        f"period={period}"
+    )
+
+    try:
+
+        history = yf.download(
+            yahoo_symbol,
+            period=period,
+            interval=interval,
+            auto_adjust=False,
+            progress=False,
+        )
+
+    except Exception as error:
+
+        raise ValueError(
+            "Failed to download market "
+            f"data for {symbol}: {error}"
+        )
+
+    if history is None or history.empty:
+
+        raise ValueError(
+            f"No market data found for "
+            f"{symbol} "
+            f"({timeframe})"
+        )
+
+    # --------------------------------------
     # Handle yfinance MultiIndex
+    # --------------------------------------
+
     if isinstance(
         history.columns,
         pd.MultiIndex,
@@ -33,19 +199,73 @@ def load_market_data(
             .get_level_values(0)
         )
 
+    # --------------------------------------
+    # Required columns
+    # --------------------------------------
+
+    required_columns = [
+        "Open",
+        "High",
+        "Low",
+        "Close",
+    ]
+
+    for column in required_columns:
+
+        if column not in history.columns:
+
+            raise ValueError(
+                f"Market data is missing "
+                f"column: {column}"
+            )
+
+    # --------------------------------------
+    # Numeric conversion
+    # --------------------------------------
+
+    for column in [
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume",
+    ]:
+
+        if column in history.columns:
+
+            history[column] = pd.to_numeric(
+                history[column],
+                errors="coerce",
+            )
+
+    # --------------------------------------
+    # Remove invalid candles
+    # --------------------------------------
+
     history = history.dropna(
-        subset=["Close"]
+        subset=[
+            "Open",
+            "High",
+            "Low",
+            "Close",
+        ]
     )
+
+    # --------------------------------------
+    # Enough data
+    # --------------------------------------
 
     if len(history) < minimum_period:
 
         raise ValueError(
             "Not enough historical data "
-            "for this strategy"
+            f"for {symbol} at "
+            f"{timeframe} timeframe. "
+            f"Required: {minimum_period}, "
+            f"Available: {len(history)}"
         )
 
     return history
-
 
 # =========================================================
 # CALCULATE INDICATORS
@@ -983,10 +1203,24 @@ def run_strategy_backtest(
     symbol: str,
     strategy_type: str,
     parameters: dict,
+    timeframe: str = "1d",
     initial_cash: float = 100000.0,
     stop_loss_percent=None,
     risk_reward_ratio=None,
 ):
+    timeframe = (
+        str(timeframe)
+        .strip()
+        .lower()
+    )
+
+    if timeframe not in TIMEFRAME_CONFIG:
+
+        raise ValueError(
+            "Unsupported timeframe: "
+            f"{timeframe}"
+        )
+
 
     symbol = (
         symbol
@@ -1001,6 +1235,9 @@ def run_strategy_backtest(
     )
 
     parameters = parameters or {}
+
+    
+    
 
     # -----------------------------------------------
     # Period needed
@@ -1126,9 +1363,10 @@ def run_strategy_backtest(
     # -----------------------------------------------
 
     history = load_market_data(
-        symbol,
-        minimum_period,
-    )
+    symbol=symbol,
+    minimum_period=minimum_period,
+    timeframe=timeframe,
+)
 
     # -----------------------------------------------
     # Indicators
@@ -1684,6 +1922,8 @@ def run_strategy_backtest(
 
         "strategy":
             strategy_type,
+
+        "timeframe": timeframe,
 
         "parameters":
             parameters,
