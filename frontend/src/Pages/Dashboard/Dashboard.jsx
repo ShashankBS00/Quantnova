@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   TrendingUp,
@@ -47,7 +47,7 @@ export default function Dashboard() {
       sub: "+₹18,420 · +18.4%",
       subColor: 'var(--qn-bull)',
       icon: Wallet,
-      iconColor: '#818cf8',
+      iconColor: '#6366f1',
       accentClass: 'qn-card-violet',
     },
     {
@@ -74,7 +74,7 @@ export default function Dashboard() {
       sub: "Risk-adjusted",
       subColor: 'var(--qn-text-3)',
       icon: Activity,
-      iconColor: '#a78bfa',
+      iconColor: '#6d28d9',
       accentClass: 'qn-card-violet',
     },
   ];
@@ -105,7 +105,7 @@ export default function Dashboard() {
             to="/trading"
             className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all qn-btn-ghost"
           >
-            <Plus size={14} style={{ color: '#a5b4fc' }} /> Buy
+            <Plus size={14} style={{ color: '#4f46e5' }} /> Buy
           </Link>
           <Link
             to="/backtest"
@@ -127,7 +127,7 @@ export default function Dashboard() {
                   style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   {card.label}
                 </p>
-                <div className="p-1.5 rounded-lg" style={{ background: 'rgba(99,102,241,0.08)' }}>
+                <div className="p-1.5 rounded-lg" style={{ background: 'rgba(79,70,229,0.07)' }}>
                   <Icon size={14} style={{ color: card.iconColor }} />
                 </div>
               </div>
@@ -157,7 +157,7 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex items-center gap-1 p-1 rounded-xl"
-              style={{ background: 'rgba(6,8,16,0.8)', border: '1px solid rgba(99,102,241,0.12)' }}>
+              style={{ background: 'rgba(238,240,251,0.90)', border: '1px solid rgba(79,70,229,0.12)' }}>
               {["1W", "1M", "3M"].map((range) => {
                 const isActive = activeRange === range;
                 return (
@@ -166,9 +166,9 @@ export default function Dashboard() {
                     onClick={() => setActiveRange(range)}
                     className="px-3 py-1 text-xs font-bold rounded-lg transition-all"
                     style={{
-                      background: isActive ? 'linear-gradient(135deg, #6366f1, #7c3aed)' : 'transparent',
+                      background: isActive ? 'linear-gradient(135deg, #4f46e5, #6d28d9)' : 'transparent',
                       color: isActive ? '#fff' : 'var(--qn-text-2)',
-                      boxShadow: isActive ? '0 2px 8px rgba(99,102,241,0.30)' : 'none',
+                      boxShadow: isActive ? '0 2px 8px rgba(79,70,229,0.25)' : 'none',
                       fontFamily: "'JetBrains Mono', monospace",
                     }}
                   >
@@ -269,9 +269,9 @@ export default function Dashboard() {
               </h3>
             </div>
             <span className="qn-badge" style={{
-              background: 'rgba(16,217,134,0.08)',
+              background: 'rgba(5,150,105,0.08)',
               color: 'var(--qn-bull)',
-              border: '1px solid rgba(16,217,134,0.20)',
+              border: '1px solid rgba(5,150,105,0.20)',
             }}>
               Real-time
             </span>
@@ -286,16 +286,16 @@ export default function Dashboard() {
                   onClick={() => setSelectedSymbol(item.ticker)}
                   className="p-3.5 rounded-xl cursor-pointer transition-all group"
                   style={{
-                    background: 'rgba(6,8,16,0.8)',
-                    border: '1px solid rgba(99,102,241,0.10)',
+                    background: '#f5f7ff',
+                    border: '1px solid rgba(79,70,229,0.10)',
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = 'rgba(99,102,241,0.30)';
-                    e.currentTarget.style.background = 'rgba(99,102,241,0.06)';
+                    e.currentTarget.style.borderColor = 'rgba(79,70,229,0.28)';
+                    e.currentTarget.style.background = 'rgba(79,70,229,0.04)';
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = 'rgba(99,102,241,0.10)';
-                    e.currentTarget.style.background = 'rgba(6,8,16,0.8)';
+                    e.currentTarget.style.borderColor = 'rgba(79,70,229,0.10)';
+                    e.currentTarget.style.background = '#f5f7ff';
                   }}
                 >
                   <div className="flex items-center justify-between">
@@ -325,7 +325,7 @@ export default function Dashboard() {
                         fontFamily: "'JetBrains Mono', monospace",
                         color: isBuy ? 'var(--qn-bull)' : 'var(--qn-bear)',
                         background: isBuy ? 'var(--qn-bull-dim)' : 'var(--qn-bear-dim)',
-                        border: `1px solid ${isBuy ? 'rgba(16,217,134,0.25)' : 'rgba(244,63,94,0.25)'}`,
+                        border: `1px solid ${isBuy ? 'rgba(5,150,105,0.25)' : 'rgba(220,38,38,0.25)'}`,
                       }}
                     >
                       {item.action}

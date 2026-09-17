@@ -63,8 +63,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 h-full flex flex-col justify-between select-none shrink-0 border-r"
       style={{
-        background: 'linear-gradient(180deg, #090c18 0%, #070a14 100%)',
-        borderColor: 'rgba(99, 102, 241, 0.12)',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f7f8ff 100%)',
+        borderColor: 'rgba(79, 70, 229, 0.12)',
       }}>
       {/* 1. Categorized Navigation Links */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-none">
@@ -88,22 +88,22 @@ export default function Sidebar() {
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
                         isActive
-                          ? "text-white border"
-                          : "border border-transparent hover:border-[rgba(99,102,241,0.12)]"
+                          ? "text-indigo-700 border"
+                          : "border border-transparent hover:border-[rgba(79,70,229,0.12)] hover:bg-[rgba(79,70,229,0.04)]"
                       }`
                     }
                     style={({ isActive }) => isActive ? {
-                      background: 'linear-gradient(135deg, rgba(99,102,241,0.20) 0%, rgba(124,58,237,0.12) 100%)',
-                      borderColor: 'rgba(99,102,241,0.30)',
-                      boxShadow: '0 0 12px rgba(99,102,241,0.10)',
-                      color: '#a5b4fc',
+                      background: 'linear-gradient(135deg, rgba(79,70,229,0.08) 0%, rgba(109,40,217,0.05) 100%)',
+                      borderColor: 'rgba(79,70,229,0.22)',
+                      boxShadow: '0 1px 6px rgba(79,70,229,0.07)',
+                      color: '#4f46e5',
                     } : {
                       color: 'var(--qn-text-2)',
                     }}
                   >
                     {({ isActive }) => (
                       <>
-                        <Icon size={16} className="shrink-0" style={{ color: isActive ? '#a5b4fc' : 'var(--qn-text-3)' }} />
+                        <Icon size={16} className="shrink-0" style={{ color: isActive ? '#4f46e5' : 'var(--qn-text-3)' }} />
                         <span className="truncate">{item.name}</span>
                       </>
                     )}
@@ -116,12 +116,12 @@ export default function Sidebar() {
       </div>
 
       {/* 2. User Card & Logout Dock */}
-      <div className="p-3 border-t" style={{ borderColor: 'rgba(99,102,241,0.12)', background: 'rgba(6,8,16,0.6)' }}>
+      <div className="p-3 border-t" style={{ borderColor: 'rgba(79,70,229,0.10)', background: 'rgba(245,247,255,0.80)' }}>
         {user && (
           <div className="mb-2 px-3 py-2 rounded-xl flex flex-col gap-0.5"
             style={{
-              background: 'rgba(99,102,241,0.07)',
-              border: '1px solid rgba(99,102,241,0.14)',
+              background: 'rgba(79,70,229,0.05)',
+              border: '1px solid rgba(79,70,229,0.12)',
             }}>
             <span className="text-xs font-semibold truncate" style={{ color: 'var(--qn-text-1)', fontFamily: "'Space Grotesk', sans-serif" }}>
               {user.username || "Shashank"}
@@ -136,7 +136,7 @@ export default function Sidebar() {
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200"
           style={{ color: 'var(--qn-bear)', fontFamily: "'Inter', sans-serif" }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(244,63,94,0.08)'; e.currentTarget.style.color = '#fb7185'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; e.currentTarget.style.color = '#dc2626'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--qn-bear)'; }}
         >
           <LogOut size={14} />

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import CandlestickChart from "@/components/charts/CandlestickChart";
 import StockSearch from "@/components/market/StockSearch";
 import { BarChart2 } from "lucide-react";
@@ -48,14 +48,14 @@ export default function MarketChart({ symbol, onSymbolChange }) {
                 onClick={() => setPeriod(item.period)}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                 style={{
-                  background: isActive ? 'linear-gradient(135deg, #6366f1, #7c3aed)' : 'rgba(12,15,26,0.8)',
-                  border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(99,102,241,0.12)',
+                  background: isActive ? 'linear-gradient(135deg, #4f46e5, #6d28d9)' : '#f5f7ff',
+                  border: isActive ? '1px solid rgba(79,70,229,0.40)' : '1px solid rgba(79,70,229,0.12)',
                   color: isActive ? '#fff' : 'var(--qn-text-2)',
-                  boxShadow: isActive ? '0 4px 12px rgba(99,102,241,0.25)' : 'none',
+                  boxShadow: isActive ? '0 4px 12px rgba(79,70,229,0.22)' : 'none',
                   fontFamily: "'JetBrains Mono', monospace",
                 }}
-                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.28)'; e.currentTarget.style.color = 'var(--qn-text-1)'; }}}
-                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.12)'; e.currentTarget.style.color = 'var(--qn-text-2)'; }}}
+                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.25)'; e.currentTarget.style.color = 'var(--qn-text-1)'; e.currentTarget.style.background = '#eef0fb'; }}}
+                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.12)'; e.currentTarget.style.color = 'var(--qn-text-2)'; e.currentTarget.style.background = '#f5f7ff'; }}}
               >
                 {item.label}
               </button>

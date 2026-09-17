@@ -417,45 +417,75 @@ export default function Backtest() {
     `-${Math.abs(Number(value ?? 0)).toFixed(2)}%`;
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-10 animate-fade-up">
+
+      {/* ============================== */}
+      {/* Header */}
+      {/* ============================== */}
+
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
-          <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest"
+            style={{
+              background: 'rgba(79,70,229,0.08)',
+              color: 'var(--qn-indigo)',
+              border: '1px solid rgba(79,70,229,0.18)',
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>
             STRATEGY LAB
           </span>
-          <h1 className="text-3xl font-bold text-white mt-3">Backtesting</h1>
-          <p className="text-slate-400 mt-2">
+          <h1 className="text-3xl font-extrabold tracking-tight mt-3"
+            style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+            Backtesting
+          </h1>
+          <p className="text-sm mt-1.5"
+            style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>
             Test your trading strategy against historical market data.
           </p>
         </div>
 
         {result && (
-          <div className="text-sm">
-            <span className="text-slate-500">Instrument: </span>
-            <span className="font-semibold text-white">{symbol}</span>
-            <span className="text-slate-600 mx-2">•</span>
-            <span className="font-semibold text-blue-400">{timeframe}</span>
+          <div className="text-sm px-4 py-2 rounded-xl"
+            style={{ background: 'rgba(79,70,229,0.06)', border: '1px solid rgba(79,70,229,0.14)', fontFamily: "'JetBrains Mono', monospace" }}>
+            <span style={{ color: 'var(--qn-text-3)' }}>Instrument: </span>
+            <span className="font-bold" style={{ color: 'var(--qn-text-1)' }}>{symbol}</span>
+            <span style={{ color: 'var(--qn-text-3)', margin: '0 8px' }}>·</span>
+            <span className="font-bold" style={{ color: 'var(--qn-indigo)' }}>{timeframe}</span>
           </div>
         )}
       </div>
 
+      {/* Saved strategy banner */}
       {selectedStrategy && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5">
-          <p className="text-xs uppercase tracking-wider text-blue-400 font-semibold">
-            Saved strategy
+        <div className="rounded-2xl p-5"
+          style={{ background: 'rgba(79,70,229,0.05)', border: '1px solid rgba(79,70,229,0.18)' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-2"
+            style={{ color: 'var(--qn-indigo)', fontFamily: "'JetBrains Mono', monospace" }}>
+            Loaded from Saved Strategy
           </p>
-          <p className="text-white font-semibold mt-2">{selectedStrategy.name}</p>
-          <p className="text-sm text-slate-400 mt-1">
-            {selectedStrategy.symbol || symbol} •{" "}
-            {selectedStrategy.strategy_type || strategyType} •{" "}
-            {selectedStrategy.timeframe || timeframe}
+          <p className="text-sm font-bold" style={{ color: 'var(--qn-text-1)', fontFamily: "'Space Grotesk', sans-serif" }}>
+            {selectedStrategy.name}
+          </p>
+          <p className="text-xs mt-1" style={{ color: 'var(--qn-text-2)', fontFamily: "'JetBrains Mono', monospace" }}>
+            {selectedStrategy.symbol || symbol} · {selectedStrategy.strategy_type || strategyType} · {selectedStrategy.timeframe || timeframe}
           </p>
         </div>
       )}
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <h2 className="text-xl font-semibold text-white">Backtest Configuration</h2>
-        <p className="text-sm text-slate-500 mt-1 mb-6">
+      {/* ============================== */}
+      {/* Configuration Card */}
+      {/* ============================== */}
+
+      <div className="qn-card p-6">
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--qn-indigo)' }} />
+          <h2 className="text-base font-bold"
+            style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+            Backtest Configuration
+          </h2>
+        </div>
+        <p className="text-xs mb-6 ml-4.5"
+          style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
           Configure market, timeframe, strategy and risk parameters.
         </p>
 
@@ -466,11 +496,12 @@ export default function Backtest() {
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               placeholder="TCS.NS"
               className={inputClass}
+              style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.04em' }}
             />
           </Field>
 
           <Field label="Strategy Type">
-            <select value={strategyType} onChange={handleStrategyChange} className={inputClass}>
+            <select value={strategyType} onChange={handleStrategyChange} className={inputClass} style={inputStyle}>
               {Object.entries(STRATEGIES).map(([value, strategy]) => (
                 <option key={value} value={value}>{strategy.label}</option>
               ))}
@@ -480,16 +511,12 @@ export default function Backtest() {
           <Field label="Timeframe">
             <select
               value={timeframe}
-              onChange={(e) => {
-                setTimeframe(e.target.value);
-                setResult(null);
-              }}
+              onChange={(e) => { setTimeframe(e.target.value); setResult(null); }}
               className={inputClass}
+              style={inputStyle}
             >
               {TIMEFRAMES.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label} ({value})
-                </option>
+                <option key={value} value={value}>{label} ({value})</option>
               ))}
             </select>
           </Field>
@@ -501,6 +528,7 @@ export default function Backtest() {
               value={initialCash}
               onChange={(e) => setInitialCash(e.target.value)}
               className={inputClass}
+              style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }}
             />
           </Field>
 
@@ -514,6 +542,7 @@ export default function Backtest() {
                 value={parameters[field.name] ?? ""}
                 onChange={(e) => handleParameterChange(field.name, e.target.value)}
                 className={inputClass}
+                style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }}
               />
             </Field>
           ))}
@@ -526,6 +555,7 @@ export default function Backtest() {
               value={stopLoss}
               onChange={(e) => setStopLoss(e.target.value)}
               className={inputClass}
+              style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }}
             />
           </Field>
 
@@ -537,34 +567,51 @@ export default function Backtest() {
               value={riskReward}
               onChange={(e) => setRiskReward(e.target.value)}
               className={inputClass}
+              style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }}
             />
           </Field>
         </div>
 
+        {/* Strategy description */}
         {currentStrategy && (
-          <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <p className="text-sm leading-6 text-slate-400">
-              <span className="font-semibold text-white">{currentStrategy.label}:</span>{" "}
+          <div className="mt-5 rounded-xl p-4"
+            style={{ background: 'rgba(79,70,229,0.04)', border: '1px solid rgba(79,70,229,0.12)' }}>
+            <p className="text-sm leading-6" style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>
+              <span className="font-bold" style={{ color: 'var(--qn-text-1)' }}>{currentStrategy.label}:</span>{" "}
               {currentStrategy.description}
             </p>
           </div>
         )}
 
+        {/* Error */}
         {error && (
-          <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 p-4">
-            <p className="text-sm text-red-300">⚠ {error}</p>
+          <div className="mt-5 rounded-xl p-4 flex items-start gap-3"
+            style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.18)' }}>
+            <span className="text-lg">⚠️</span>
+            <p className="text-sm font-medium" style={{ color: 'var(--qn-bear)', fontFamily: "'Inter', sans-serif" }}>
+              {error}
+            </p>
           </div>
         )}
 
+        {/* Run button */}
         <button
           onClick={handleBacktest}
           disabled={loading}
-          className="mt-6 inline-flex items-center justify-center gap-2 px-7 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-blue-600/20"
+          className="mt-6 inline-flex items-center justify-center gap-2.5 px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: loading ? 'rgba(79,70,229,0.5)' : 'linear-gradient(135deg, #4f46e5, #6d28d9)',
+            color: '#fff',
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontSize: '14px',
+            boxShadow: '0 6px 20px rgba(79,70,229,0.30)',
+            border: 'none',
+          }}
         >
           {loading ? (
             <>
               <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-              Running Backtest...
+              Running Backtest…
             </>
           ) : (
             <>▶ Run Backtest</>
@@ -572,39 +619,51 @@ export default function Backtest() {
         </button>
       </div>
 
+      {/* ============================== */}
+      {/* Results */}
+      {/* ============================== */}
+
       {result && (
         <>
-          <div>
-            <div className="flex items-end justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold text-white">Backtest Results</h2>
-                <p className="text-sm text-slate-500 mt-1">
-                  Performance summary for {symbol} on the {timeframe} timeframe.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-              <ResultCard title="Initial Capital" value={money(result.initial_cash)} subtitle="Starting balance" />
-              <ResultCard
-                title="Final Capital"
-                value={money(result.final_cash)}
-                subtitle="Ending balance"
-                valueClass={Number(result.final_cash) >= Number(result.initial_cash) ? "text-emerald-400" : "text-red-400"}
-              />
-              <ResultCard
-                title="Total Return"
-                value={percent(result.total_return)}
-                subtitle="Net portfolio return"
-                valueClass={Number(result.total_return) >= 0 ? "text-emerald-400" : "text-red-400"}
-              />
-              <ResultCard title="Total Trades" value={result.total_trades ?? 0} subtitle="Executed trades" />
+          {/* Section title */}
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-bold"
+                style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+                Backtest Results
+              </h2>
+              <p className="text-sm mt-1"
+                style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>
+                Performance summary for <span className="font-semibold" style={{ color: 'var(--qn-indigo)', fontFamily: "'JetBrains Mono', monospace" }}>{symbol}</span> on the{" "}
+                <span className="font-semibold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{timeframe}</span> timeframe.
+              </p>
             </div>
           </div>
 
+          {/* Primary metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+            <ResultCard title="Initial Capital" value={money(result.initial_cash)} subtitle="Starting balance" />
+            <ResultCard
+              title="Final Capital"
+              value={money(result.final_cash)}
+              subtitle="Ending balance"
+              positive={Number(result.final_cash) >= Number(result.initial_cash)}
+              colored
+            />
+            <ResultCard
+              title="Total Return"
+              value={percent(result.total_return)}
+              subtitle="Net portfolio return"
+              positive={Number(result.total_return) >= 0}
+              colored
+            />
+            <ResultCard title="Total Trades" value={result.total_trades ?? 0} subtitle="Executed trades" />
+          </div>
+
+          {/* Secondary metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-            <ResultCard title="Winning Trades" value={result.winning_trades ?? 0} valueClass="text-emerald-400" />
-            <ResultCard title="Losing Trades" value={result.losing_trades ?? 0} valueClass="text-red-400" />
+            <ResultCard title="Winning Trades" value={result.winning_trades ?? 0} positive colored />
+            <ResultCard title="Losing Trades" value={result.losing_trades ?? 0} positive={false} colored />
             <ResultCard title="Win Rate" value={`${Number(result.win_rate ?? 0).toFixed(2)}%`} />
             <ResultCard
               title="Profit Factor"
@@ -614,9 +673,10 @@ export default function Backtest() {
                   : Number(result.profit_factor).toFixed(2)
               }
             />
-            <ResultCard title="Max Drawdown" value={drawdown(result.max_drawdown)} valueClass="text-red-400" />
+            <ResultCard title="Max Drawdown" value={drawdown(result.max_drawdown)} positive={false} colored />
           </div>
 
+          {/* Config summary pills */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <SummaryItem label="Symbol" value={symbol} />
             <SummaryItem label="Strategy" value={currentStrategy?.label || strategyType} />
@@ -624,15 +684,16 @@ export default function Backtest() {
             <SummaryItem label="Risk / Reward" value={`1 : ${Number(riskReward).toFixed(1)}`} />
           </div>
 
+          {/* Charts */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <ChartCard title="Equity Curve" description="Portfolio value throughout the backtest.">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={result.equity_curve || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} minTickGap={30} />
-                  <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(79,70,229,0.08)" />
+                  <XAxis dataKey="date" stroke="#94a3b8" tick={{ fontSize: 11, fill: '#64748b', fontFamily: "'JetBrains Mono', monospace" }} minTickGap={30} />
+                  <YAxis stroke="#94a3b8" tick={{ fontSize: 11, fill: '#64748b', fontFamily: "'JetBrains Mono', monospace" }} />
                   <Tooltip contentStyle={tooltipStyle} formatter={(value) => [money(value), "Equity"]} />
-                  <Line type="monotone" dataKey="equity" stroke="#22c55e" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="equity" stroke="#059669" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -640,36 +701,48 @@ export default function Backtest() {
             <ChartCard title="Drawdown Curve" description="Percentage decline from the previous portfolio peak.">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={result.equity_curve || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} minTickGap={30} />
-                  <YAxis stroke="#64748b" tick={{ fontSize: 11 }} tickFormatter={(value) => `${value}%`} />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(value) => [`${Number(value ?? 0).toFixed(2)}%`, "Drawdown"]}
-                  />
-                  <Line type="monotone" dataKey="drawdown" stroke="#ef4444" strokeWidth={2} dot={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(79,70,229,0.08)" />
+                  <XAxis dataKey="date" stroke="#94a3b8" tick={{ fontSize: 11, fill: '#64748b', fontFamily: "'JetBrains Mono', monospace" }} minTickGap={30} />
+                  <YAxis stroke="#94a3b8" tick={{ fontSize: 11, fill: '#64748b', fontFamily: "'JetBrains Mono', monospace" }} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(value) => [`${Number(value ?? 0).toFixed(2)}%`, "Drawdown"]} />
+                  <Line type="monotone" dataKey="drawdown" stroke="#dc2626" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+          {/* Trade History */}
+          <div className="qn-card p-6 overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-white">Trade History</h2>
-                <p className="text-sm text-slate-500 mt-1">
+                <h2 className="text-base font-bold"
+                  style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+                  Trade History
+                </h2>
+                <p className="text-xs mt-0.5"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
                   Orders generated by the selected strategy.
                 </p>
               </div>
-              <span className="text-xs px-3 py-1.5 rounded-full bg-slate-800 text-slate-400">
+              <span className="text-[10px] font-bold px-3 py-1.5 rounded-full"
+                style={{
+                  background: 'rgba(79,70,229,0.07)',
+                  color: 'var(--qn-indigo)',
+                  border: '1px solid rgba(79,70,229,0.15)',
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
                 {result.trades?.length || 0} records
               </span>
             </div>
 
             {!result.trades || result.trades.length === 0 ? (
-              <div className="py-12 text-center border border-dashed border-slate-800 rounded-xl">
-                <p className="text-slate-400">No trades generated.</p>
-                <p className="text-xs text-slate-600 mt-1">
+              <div className="py-14 text-center rounded-xl"
+                style={{ border: '1px dashed rgba(79,70,229,0.20)', background: 'rgba(79,70,229,0.02)' }}>
+                <div className="text-3xl mb-3">📊</div>
+                <p className="text-sm font-semibold" style={{ color: 'var(--qn-text-2)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                  No trades generated
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
                   Try another timeframe or strategy configuration.
                 </p>
               </div>
@@ -677,40 +750,60 @@ export default function Backtest() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-                      <th className="pb-3 pr-4">Date</th>
-                      <th className="pb-3 pr-4">Side</th>
-                      <th className="pb-3 pr-4">Quantity</th>
-                      <th className="pb-3 pr-4">Price</th>
-                      <th className="pb-3 pr-4">P&L</th>
-                      <th className="pb-3">Reason</th>
+                    <tr style={{ borderBottom: '1px solid var(--qn-border)' }}>
+                      {["Date", "Side", "Quantity", "Price", "P&L", "Reason"].map(h => (
+                        <th key={h} className="pb-3 pr-4 text-[10px] font-bold uppercase tracking-widest"
+                          style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {result.trades.map((trade, index) => (
-                      <tr key={index} className="border-b border-slate-800/60 text-sm hover:bg-slate-800/30 transition">
-                        <td className="py-4 pr-4 text-slate-300 whitespace-nowrap">{trade.date}</td>
-                        <td className="py-4 pr-4">
-                          <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-bold ${
-                            trade.side === "BUY"
-                              ? "bg-emerald-500/10 text-emerald-400"
-                              : "bg-red-500/10 text-red-400"
-                          }`}>
+                      <tr key={index} className="transition-all"
+                        style={{ borderBottom: '1px solid rgba(79,70,229,0.06)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(79,70,229,0.03)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <td className="py-3.5 pr-4 text-xs whitespace-nowrap"
+                          style={{ color: 'var(--qn-text-2)', fontFamily: "'JetBrains Mono', monospace" }}>
+                          {trade.date}
+                        </td>
+                        <td className="py-3.5 pr-4">
+                          <span className="inline-flex px-2.5 py-1 rounded-md text-[10px] font-black"
+                            style={{
+                              background: trade.side === "BUY" ? 'rgba(5,150,105,0.09)' : 'rgba(220,38,38,0.09)',
+                              color: trade.side === "BUY" ? 'var(--qn-bull)' : 'var(--qn-bear)',
+                              border: `1px solid ${trade.side === "BUY" ? 'rgba(5,150,105,0.25)' : 'rgba(220,38,38,0.25)'}`,
+                              fontFamily: "'JetBrains Mono', monospace",
+                              letterSpacing: '0.05em',
+                            }}>
                             {trade.side}
                           </span>
                         </td>
-                        <td className="py-4 pr-4 text-slate-300">{trade.quantity}</td>
-                        <td className="py-4 pr-4 text-white">{money(trade.price)}</td>
-                        <td className="py-4 pr-4">
+                        <td className="py-3.5 pr-4 text-xs font-semibold"
+                          style={{ color: 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
+                          {trade.quantity}
+                        </td>
+                        <td className="py-3.5 pr-4 text-xs font-bold"
+                          style={{ color: 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
+                          {money(trade.price)}
+                        </td>
+                        <td className="py-3.5 pr-4 text-xs font-bold"
+                          style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                           {trade.pnl !== undefined && trade.pnl !== null ? (
-                            <span className={Number(trade.pnl) >= 0 ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>
+                            <span style={{ color: Number(trade.pnl) >= 0 ? 'var(--qn-bull)' : 'var(--qn-bear)' }}>
                               {money(trade.pnl)}
                             </span>
                           ) : (
-                            <span className="text-slate-600">—</span>
+                            <span style={{ color: 'var(--qn-text-3)' }}>—</span>
                           )}
                         </td>
-                        <td className="py-4 text-slate-400 max-w-xs">{trade.reason || "—"}</td>
+                        <td className="py-3.5 text-xs max-w-xs"
+                          style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+                          {trade.reason || "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -725,19 +818,32 @@ export default function Backtest() {
 }
 
 const inputClass =
-  "w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition";
+  "w-full rounded-xl px-4 py-2.5 text-sm transition-all outline-none appearance-none cursor-pointer";
+
+const inputStyle = {
+  background: '#f5f7ff',
+  border: '1px solid rgba(79,70,229,0.16)',
+  color: 'var(--qn-text-1)',
+  fontFamily: "'Inter', sans-serif",
+};
 
 const tooltipStyle = {
-  backgroundColor: "#0f172a",
-  border: "1px solid #1e293b",
-  borderRadius: "10px",
-  color: "#fff",
+  backgroundColor: "#ffffff",
+  border: "1px solid rgba(79,70,229,0.16)",
+  borderRadius: "12px",
+  color: "#1a1f3c",
+  boxShadow: "0 4px 20px rgba(79,70,229,0.10)",
+  fontFamily: "'Inter', sans-serif",
+  fontSize: "12px",
 };
 
 function Field({ label, children }) {
   return (
     <div>
-      <label className="block text-sm text-slate-400 mb-2">{label}</label>
+      <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider"
+        style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -745,9 +851,15 @@ function Field({ label, children }) {
 
 function ChartCard({ title, description, children }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <h2 className="text-xl font-semibold text-white">{title}</h2>
-      <p className="text-sm text-slate-500 mt-1 mb-5">{description}</p>
+    <div className="qn-card p-6">
+      <h2 className="text-base font-bold"
+        style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+        {title}
+      </h2>
+      <p className="text-xs mt-1 mb-5"
+        style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+        {description}
+      </p>
       <div className="h-80">{children}</div>
     </div>
   );
@@ -755,19 +867,54 @@ function ChartCard({ title, description, children }) {
 
 function SummaryItem({ label, value }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-      <p className="text-xs uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="text-sm font-semibold text-white mt-1 truncate">{value}</p>
+    <div className="rounded-xl px-4 py-4"
+      style={{ background: '#f5f7ff', border: '1px solid rgba(79,70,229,0.10)' }}>
+      <p className="text-[10px] font-bold uppercase tracking-widest"
+        style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
+        {label}
+      </p>
+      <p className="text-sm font-bold mt-1.5 truncate"
+        style={{ color: 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
+        {value}
+      </p>
     </div>
   );
 }
 
-function ResultCard({ title, value, subtitle, valueClass = "text-white" }) {
+function ResultCard({ title, value, subtitle, colored = false, positive }) {
+  const color = colored
+    ? positive
+      ? 'var(--qn-bull)'
+      : 'var(--qn-bear)'
+    : 'var(--qn-text-1)';
+
+  const bg = colored
+    ? positive
+      ? 'rgba(5,150,105,0.04)'
+      : 'rgba(220,38,38,0.04)'
+    : '#ffffff';
+
+  const border = colored
+    ? positive
+      ? '1px solid rgba(5,150,105,0.14)'
+      : '1px solid rgba(220,38,38,0.14)'
+    : '1px solid var(--qn-border)';
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition">
-      <p className="text-sm text-slate-400">{title}</p>
-      <h2 className={`text-2xl font-bold mt-3 ${valueClass}`}>{value}</h2>
-      {subtitle && <p className="text-xs text-slate-600 mt-2">{subtitle}</p>}
+    <div className="rounded-2xl p-5 transition-all"
+      style={{ background: bg, border }}>
+      <p className="text-xs font-semibold uppercase tracking-wider"
+        style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
+        {title}
+      </p>
+      <h2 className="text-2xl font-black mt-3" style={{ color, fontFamily: "'JetBrains Mono', monospace" }}>
+        {value}
+      </h2>
+      {subtitle && (
+        <p className="text-[10px] mt-2" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+          {subtitle}
+        </p>
+      )}
     </div>
   );
 }

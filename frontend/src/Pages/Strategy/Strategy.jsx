@@ -559,20 +559,21 @@ export default function Strategy() {
   // ==========================================
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-up">
 
       {/* ====================================== */}
       {/* Header */}
       {/* ====================================== */}
 
       <div>
-        <h1 className="text-3xl font-bold text-white">
+        <h1
+          className="text-3xl font-extrabold tracking-tight"
+          style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}
+        >
           Strategy Builder
         </h1>
-
-        <p className="text-slate-400 mt-2">
-          Create and customize your algorithmic
-          trading strategy
+        <p className="mt-1.5 text-sm" style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>
+          Create and configure your algorithmic trading strategy
         </p>
       </div>
 
@@ -587,172 +588,157 @@ export default function Strategy() {
         {/* LEFT SIDE */}
         {/* ==================================== */}
 
-        <div className="xl:col-span-2 space-y-6">
+        <div className="xl:col-span-2 space-y-5">
 
           {/* ================================== */}
           {/* Basic Information */}
           {/* ================================== */}
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+          <div className="qn-card p-6">
 
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-white">
-                ① Basic Information
-              </h2>
-
-              <p className="text-sm text-slate-500 mt-1">
+              <div className="flex items-center gap-2.5 mb-1">
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
+                  style={{ background: 'linear-gradient(135deg, #4f46e5, #6d28d9)', color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>
+                  1
+                </span>
+                <h2 className="text-base font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+                  Basic Information
+                </h2>
+              </div>
+              <p className="text-xs ml-8.5" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
                 Define what you want to trade.
               </p>
             </div>
 
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
               {/* Strategy Name */}
-
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Strategy Name
                 </label>
-
                 <input
                   value={name}
-                  onChange={(e) =>
-                    setName(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="TCS SMA Strategy"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+                  className="w-full rounded-xl px-4 py-2.5 text-sm transition-all"
+                  style={{
+                    background: '#f5f7ff',
+                    border: '1px solid rgba(79,70,229,0.16)',
+                    color: 'var(--qn-text-1)',
+                    fontFamily: "'Inter', sans-serif",
+                    outline: 'none',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
                 />
               </div>
-
 
               {/* Asset Type */}
-
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Asset Type
                 </label>
-
                 <select
                   value={assetType}
-                  onChange={(e) =>
-                    setAssetType(
-                      e.target.value
-                    )
-                  }
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+                  onChange={(e) => setAssetType(e.target.value)}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm transition-all appearance-none cursor-pointer"
+                  style={{
+                    background: '#f5f7ff',
+                    border: '1px solid rgba(79,70,229,0.16)',
+                    color: 'var(--qn-text-1)',
+                    fontFamily: "'Inter', sans-serif",
+                    outline: 'none',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  {assetTypes.map(
-                    (asset) => (
-                      <option
-                        key={
-                          asset.value
-                        }
-                        value={
-                          asset.value
-                        }
-                      >
-                        {asset.label}
-                      </option>
-                    )
-                  )}
+                  {assetTypes.map((asset) => (
+                    <option key={asset.value} value={asset.value}>{asset.label}</option>
+                  ))}
                 </select>
               </div>
 
-
               {/* Symbol */}
-
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Symbol / Stock
                 </label>
-
                 <input
                   value={symbol}
-                  onChange={(e) =>
-                    setSymbol(
-                      e.target.value.toUpperCase()
-                    )
-                  }
+                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
                   placeholder="TCS.NS"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+                  className="w-full rounded-xl px-4 py-2.5 text-sm transition-all"
+                  style={{
+                    background: '#f5f7ff',
+                    border: '1px solid rgba(79,70,229,0.16)',
+                    color: 'var(--qn-text-1)',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    outline: 'none',
+                    letterSpacing: '0.04em',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
                 />
               </div>
 
-
               {/* Trading Style */}
-
               <div>
-                <label className="block text-sm text-slate-400 mb-2">
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Trading Style
                 </label>
-
                 <select
                   value={tradingStyle}
-                  onChange={(e) =>
-                    handleTradingStyleChange(
-                      e.target.value
-                    )
-                  }
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+                  onChange={(e) => handleTradingStyleChange(e.target.value)}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm transition-all appearance-none cursor-pointer"
+                  style={{
+                    background: '#f5f7ff',
+                    border: '1px solid rgba(79,70,229,0.16)',
+                    color: 'var(--qn-text-1)',
+                    fontFamily: "'Inter', sans-serif",
+                    outline: 'none',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  {tradingStyles.map(
-                    (style) => (
-                      <option
-                        key={
-                          style.value
-                        }
-                        value={
-                          style.value
-                        }
-                      >
-                        {style.label}
-                      </option>
-                    )
-                  )}
+                  {tradingStyles.map((style) => (
+                    <option key={style.value} value={style.value}>{style.label}</option>
+                  ))}
                 </select>
               </div>
 
-
               {/* Timeframe */}
-
               <div className="md:col-span-2">
-
-                <label className="block text-sm text-slate-400 mb-2">
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Time Frame
                 </label>
-
                 <select
                   value={timeframe}
-                  onChange={(e) =>
-                    setTimeframe(
-                      e.target.value
-                    )
-                  }
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+                  onChange={(e) => setTimeframe(e.target.value)}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm transition-all appearance-none cursor-pointer"
+                  style={{
+                    background: '#f5f7ff',
+                    border: '1px solid rgba(79,70,229,0.16)',
+                    color: 'var(--qn-text-1)',
+                    fontFamily: "'Inter', sans-serif",
+                    outline: 'none',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  {availableTimeframes.map(
-                    (item) => (
-                      <option
-                        key={
-                          item.value
-                        }
-                        value={
-                          item.value
-                        }
-                      >
-                        {item.label}
-                      </option>
-                    )
-                  )}
+                  {availableTimeframes.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
                 </select>
-
               </div>
 
             </div>
-
           </div>
 
 
@@ -760,126 +746,94 @@ export default function Strategy() {
           {/* Strategy Settings */}
           {/* ================================== */}
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+          <div className="qn-card p-6">
 
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-white">
-                ② Strategy Type & Settings
-              </h2>
-
-              <p className="text-sm text-slate-500 mt-1">
-                Configure the indicators used by
-                your strategy.
+              <div className="flex items-center gap-2.5 mb-1">
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
+                  style={{ background: 'linear-gradient(135deg, #4f46e5, #6d28d9)', color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>
+                  2
+                </span>
+                <h2 className="text-base font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+                  Strategy Type &amp; Settings
+                </h2>
+              </div>
+              <p className="text-xs ml-8.5" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+                Configure the indicators used by your strategy.
               </p>
             </div>
 
-
             {/* Strategy Type */}
-
             <div>
-              <label className="block text-sm text-slate-400 mb-2">
+              <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                 Strategy Type
               </label>
-
               <select
                 value={strategyType}
-                onChange={(e) =>
-                  handleStrategyTypeChange(
-                    e.target.value
-                  )
-                }
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+                onChange={(e) => handleStrategyTypeChange(e.target.value)}
+                className="w-full rounded-xl px-4 py-2.5 text-sm transition-all appearance-none cursor-pointer"
+                style={{
+                  background: '#f5f7ff',
+                  border: '1px solid rgba(79,70,229,0.16)',
+                  color: 'var(--qn-text-1)',
+                  fontFamily: "'Inter', sans-serif",
+                  outline: 'none',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
               >
-                {strategyTypes.map(
-                  (strategy) => (
-                    <option
-                      key={
-                        strategy.value
-                      }
-                      value={
-                        strategy.value
-                      }
-                    >
-                      {strategy.label}
-                    </option>
-                  )
-                )}
+                {strategyTypes.map((strategy) => (
+                  <option key={strategy.value} value={strategy.value}>{strategy.label}</option>
+                ))}
               </select>
             </div>
 
-
             {/* Description */}
-
             {selectedStrategy && (
-              <div className="mt-4 bg-slate-800/60 border border-slate-700 rounded-xl p-4">
-
-                <p className="text-sm text-slate-300">
+              <div className="mt-4 rounded-xl p-4"
+                style={{ background: 'rgba(79,70,229,0.04)', border: '1px solid rgba(79,70,229,0.12)' }}>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>
                   {selectedStrategy.description}
                 </p>
-
               </div>
             )}
 
-
             {/* Dynamic Fields */}
-
             {selectedStrategy && (
               <div className="mt-6">
-
-                <h3 className="text-sm font-semibold text-slate-300 mb-4">
-                  {selectedStrategy.label} Settings
+                <h3 className="text-xs font-bold uppercase tracking-widest mb-4"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {selectedStrategy.label} Parameters
                 </h3>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                  {selectedStrategy.fields.map(
-                    (field) => (
-
-                      <div
-                        key={
-                          field.name
-                        }
-                      >
-
-                        <label className="block text-sm text-slate-400 mb-2">
-                          {field.label}
-                        </label>
-
-                        <input
-                          type={
-                            field.type
-                          }
-                          min={
-                            field.min
-                          }
-                          max={
-                            field.max
-                          }
-                          step={
-                            field.step ||
-                            1
-                          }
-                          value={
-                            parameters[
-                              field.name
-                            ] ?? ""
-                          }
-                          onChange={(e) =>
-                            handleParameterChange(
-                              field.name,
-                              e.target.value
-                            )
-                          }
-                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
-                        />
-
-                      </div>
-
-                    )
-                  )}
-
+                  {selectedStrategy.fields.map((field) => (
+                    <div key={field.name}>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                        style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
+                        {field.label}
+                      </label>
+                      <input
+                        type={field.type}
+                        min={field.min}
+                        max={field.max}
+                        step={field.step || 1}
+                        value={parameters[field.name] ?? ""}
+                        onChange={(e) => handleParameterChange(field.name, e.target.value)}
+                        className="w-full rounded-xl px-4 py-2.5 text-sm transition-all"
+                        style={{
+                          background: '#f5f7ff',
+                          border: '1px solid rgba(79,70,229,0.16)',
+                          color: 'var(--qn-text-1)',
+                          fontFamily: "'JetBrains Mono', monospace",
+                          outline: 'none',
+                        }}
+                        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
+                      />
+                    </div>
+                  ))}
                 </div>
-
               </div>
             )}
 
@@ -890,147 +844,116 @@ export default function Strategy() {
           {/* Risk Management */}
           {/* ================================== */}
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+          <div className="qn-card p-6">
 
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-white">
-                ③ Risk Management
-              </h2>
-
-              <p className="text-sm text-slate-500 mt-1">
+              <div className="flex items-center gap-2.5 mb-1">
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
+                  style={{ background: 'linear-gradient(135deg, #4f46e5, #6d28d9)', color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>
+                  3
+                </span>
+                <h2 className="text-base font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+                  Risk Management
+                </h2>
+              </div>
+              <p className="text-xs ml-8.5" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
                 Define your stop loss and target.
               </p>
             </div>
 
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
               {/* Stop Loss */}
-
               <div>
-
-                <label className="block text-sm text-slate-400 mb-2">
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Stop Loss
                 </label>
-
                 <select
                   value={stopLoss}
-                  onChange={(e) =>
-                    setStopLoss(
-                      Number(
-                        e.target.value
-                      )
-                    )
-                  }
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+                  onChange={(e) => setStopLoss(Number(e.target.value))}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm transition-all appearance-none cursor-pointer"
+                  style={{
+                    background: '#f5f7ff',
+                    border: '1px solid rgba(79,70,229,0.16)',
+                    color: 'var(--qn-text-1)',
+                    fontFamily: "'Inter', sans-serif",
+                    outline: 'none',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  {stopLossOptions.map(
-                    (option) => (
-                      <option
-                        key={
-                          option.value
-                        }
-                        value={
-                          option.value
-                        }
-                      >
-                        {option.label}
-                      </option>
-                    )
-                  )}
+                  {stopLossOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
-
               </div>
-
 
               {/* Risk Reward */}
-
               <div>
-
-                <label className="block text-sm text-slate-400 mb-2">
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Target / Risk : Reward
                 </label>
-
                 <select
                   value={riskReward}
-                  onChange={(e) =>
-                    setRiskReward(
-                      Number(
-                        e.target.value
-                      )
-                    )
-                  }
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+                  onChange={(e) => setRiskReward(Number(e.target.value))}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm transition-all appearance-none cursor-pointer"
+                  style={{
+                    background: '#f5f7ff',
+                    border: '1px solid rgba(79,70,229,0.16)',
+                    color: 'var(--qn-text-1)',
+                    fontFamily: "'Inter', sans-serif",
+                    outline: 'none',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  {riskRewardOptions.map(
-                    (option) => (
-                      <option
-                        key={
-                          option.value
-                        }
-                        value={
-                          option.value
-                        }
-                      >
-                        {option.label}
-                      </option>
-                    )
-                  )}
+                  {riskRewardOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
-
               </div>
 
             </div>
 
+            {/* Risk Calculation Pills */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
 
-            {/* Risk Calculation */}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-
-              <div className="bg-slate-800/70 rounded-xl p-4">
-
-                <p className="text-xs text-slate-500">
+              <div className="rounded-xl p-4"
+                style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.14)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Stop Loss
                 </p>
-
-                <p className="text-lg font-semibold text-red-400 mt-1">
+                <p className="text-xl font-black" style={{ color: 'var(--qn-bear)', fontFamily: "'JetBrains Mono', monospace" }}>
                   {Number(stopLoss).toFixed(2)}%
                 </p>
-
               </div>
 
-
-              <div className="bg-slate-800/70 rounded-xl p-4">
-
-                <p className="text-xs text-slate-500">
+              <div className="rounded-xl p-4"
+                style={{ background: 'rgba(79,70,229,0.05)', border: '1px solid rgba(79,70,229,0.14)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Risk : Reward
                 </p>
-
-                <p className="text-lg font-semibold text-blue-400 mt-1">
+                <p className="text-xl font-black" style={{ color: 'var(--qn-indigo)', fontFamily: "'JetBrains Mono', monospace" }}>
                   1 : {Number(riskReward)}
                 </p>
-
               </div>
 
-
-              <div className="bg-slate-800/70 rounded-xl p-4">
-
-                <p className="text-xs text-slate-500">
+              <div className="rounded-xl p-4"
+                style={{ background: 'rgba(5,150,105,0.05)', border: '1px solid rgba(5,150,105,0.14)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Potential Reward
                 </p>
-
-                <p className="text-lg font-semibold text-green-400 mt-1">
-                  {(
-                    Number(stopLoss) *
-                    Number(riskReward)
-                  ).toFixed(2)}
-                  %
+                <p className="text-xl font-black" style={{ color: 'var(--qn-bull)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {(Number(stopLoss) * Number(riskReward)).toFixed(2)}%
                 </p>
-
               </div>
 
             </div>
-
           </div>
 
 
@@ -1039,23 +962,22 @@ export default function Strategy() {
           {/* ================================== */}
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-
-              <p className="text-sm text-red-400">
+            <div className="rounded-xl p-4 flex items-start gap-3"
+              style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.18)' }}>
+              <span className="text-lg">⚠️</span>
+              <p className="text-sm font-medium" style={{ color: 'var(--qn-bear)', fontFamily: "'Inter', sans-serif" }}>
                 {error}
               </p>
-
             </div>
           )}
 
-
           {message && (
-            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-
-              <p className="text-sm text-green-400">
+            <div className="rounded-xl p-4 flex items-start gap-3"
+              style={{ background: 'rgba(5,150,105,0.05)', border: '1px solid rgba(5,150,105,0.18)' }}>
+              <span className="text-lg">✅</span>
+              <p className="text-sm font-medium" style={{ color: 'var(--qn-bull)', fontFamily: "'Inter', sans-serif" }}>
                 {message}
               </p>
-
             </div>
           )}
 
@@ -1065,245 +987,123 @@ export default function Strategy() {
           {/* ================================== */}
 
           <div className="flex justify-end">
-
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-8 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition"
+              className="qn-btn-primary px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50"
+              style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '14px' }}
             >
-              {saving
-                ? "Saving..."
-                : "Save Strategy"}
+              {saving ? "Saving…" : "Save Strategy"}
             </button>
-
           </div>
 
         </div>
 
 
         {/* ==================================== */}
-        {/* RIGHT SIDE */}
+        {/* RIGHT SIDE — Live Summary */}
         {/* ==================================== */}
 
-        <div className="space-y-6">
+        <div className="space-y-5">
 
-          {/* ================================== */}
-          {/* Live Summary */}
-          {/* ================================== */}
+          <div className="qn-card p-6 sticky top-6">
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sticky top-6">
-
-            <h2 className="text-xl font-semibold text-white">
-              Strategy Summary
-            </h2>
-
-            <p className="text-sm text-slate-500 mt-1">
-              Live preview
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--qn-indigo)' }} />
+              <h2 className="text-base font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+                Strategy Summary
+              </h2>
+            </div>
+            <p className="text-xs mb-5" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+              Live preview of your configuration
             </p>
 
-
-            <div className="border-t border-slate-800 my-5" />
-
+            <div style={{ borderTop: '1px solid var(--qn-border)', marginBottom: '1.25rem' }} />
 
             {/* Name */}
-
-            <h3 className="text-lg font-semibold text-white">
-
-              {name.trim()
-                ? name
-                : "Your Strategy"}
-
+            <h3 className="text-lg font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+              {name.trim() ? name : "Your Strategy"}
             </h3>
 
-
-            {/* Symbol */}
-
-            <p className="text-sm text-slate-400 mt-1">
+            {/* Symbol + type */}
+            <p className="text-sm mt-1 font-medium" style={{ color: 'var(--qn-text-2)', fontFamily: "'JetBrains Mono', monospace" }}>
               {symbol || "SYMBOL"}
-              {" • "}
-              {assetTypes.find(
-                (item) =>
-                  item.value ===
-                  assetType
-              )?.label ||
-                assetType}
+              {" · "}
+              {assetTypes.find((item) => item.value === assetType)?.label || assetType}
             </p>
 
-
-            {/* Trading */}
-
-            <p className="text-sm text-slate-500 mt-1">
-
-              {getTradingStyleLabel(
-                tradingStyle
-              )}
-
-              {" • "}
-
-              {getTimeframeLabel(
-                timeframe
-              )}
-
+            <p className="text-xs mt-1" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+              {getTradingStyleLabel(tradingStyle)} · {getTimeframeLabel(timeframe)}
             </p>
 
-
-            <div className="border-t border-slate-800 my-5" />
-
+            <div style={{ borderTop: '1px solid var(--qn-border)', marginTop: '1.25rem', marginBottom: '1.25rem' }} />
 
             {/* Strategy */}
-
-            <p className="text-xs uppercase tracking-wide text-slate-500">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2"
+              style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
               Strategy
             </p>
-
-            <p className="text-lg font-semibold text-blue-400 mt-1">
+            <p className="text-sm font-bold" style={{ color: 'var(--qn-indigo)', fontFamily: "'Space Grotesk', sans-serif" }}>
               {selectedStrategy?.label}
             </p>
 
-
             {/* Parameters */}
-
-            <div className="mt-4 space-y-2">
-
-              {selectedStrategy?.fields.map(
-                (field) => (
-
-                  <div
-                    key={
-                      field.name
-                    }
-                    className="flex justify-between gap-4"
-                  >
-
-                    <span className="text-sm text-slate-400">
-                      {field.label}
-                    </span>
-
-                    <span className="text-sm font-semibold text-white">
-                      {
-                        parameters[
-                          field.name
-                        ]
-                      }
-                    </span>
-
-                  </div>
-
-                )
-              )}
-
+            <div className="mt-3 space-y-2">
+              {selectedStrategy?.fields.map((field) => (
+                <div key={field.name} className="flex justify-between items-center">
+                  <span className="text-xs" style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>
+                    {field.label}
+                  </span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-md"
+                    style={{ color: 'var(--qn-text-1)', background: 'rgba(79,70,229,0.07)', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {parameters[field.name]}
+                  </span>
+                </div>
+              ))}
             </div>
 
-
-            <div className="border-t border-slate-800 my-5" />
-
+            <div style={{ borderTop: '1px solid var(--qn-border)', marginTop: '1.25rem', marginBottom: '1.25rem' }} />
 
             {/* Risk */}
-
-            <p className="text-xs uppercase tracking-wide text-slate-500">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3"
+              style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
               Risk Management
             </p>
 
-
-            <div className="mt-4 space-y-3">
-
-              <div className="flex justify-between">
-
-                <span className="text-sm text-slate-400">
-                  Stop Loss
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-xs" style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>Stop Loss</span>
+                <span className="text-xs font-black" style={{ color: 'var(--qn-bear)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {Number(stopLoss).toFixed(2)}%
                 </span>
-
-                <span className="text-sm font-semibold text-red-400">
-                  {Number(
-                    stopLoss
-                  ).toFixed(2)}
-                  %
-                </span>
-
               </div>
-
-
-              <div className="flex justify-between">
-
-                <span className="text-sm text-slate-400">
-                  Risk : Reward
+              <div className="flex justify-between items-center">
+                <span className="text-xs" style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>Risk : Reward</span>
+                <span className="text-xs font-black" style={{ color: 'var(--qn-indigo)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  1 : {Number(riskReward)}
                 </span>
-
-                <span className="text-sm font-semibold text-blue-400">
-                  1 :{" "}
-                  {Number(
-                    riskReward
-                  )}
-                </span>
-
               </div>
-
-
-              <div className="flex justify-between">
-
-                <span className="text-sm text-slate-400">
-                  Potential Reward
+              <div className="flex justify-between items-center">
+                <span className="text-xs" style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>Potential Reward</span>
+                <span className="text-xs font-black" style={{ color: 'var(--qn-bull)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {(Number(stopLoss) * Number(riskReward)).toFixed(2)}%
                 </span>
-
-                <span className="text-sm font-semibold text-green-400">
-                  {(
-                    Number(stopLoss) *
-                    Number(riskReward)
-                  ).toFixed(2)}
-                  %
-                </span>
-
               </div>
-
             </div>
 
-
-            {/* Logic */}
-
-            {strategyType ===
-              "SMA_CROSSOVER" && (
-              <div className="mt-6 bg-slate-800/60 rounded-xl p-4">
-
-                <p className="text-xs uppercase tracking-wide text-slate-500">
+            {/* Strategy Logic */}
+            {(strategyType === "SMA_CROSSOVER" || strategyType === "EMA_CROSSOVER") && (
+              <div className="mt-5 rounded-xl p-4"
+                style={{ background: 'rgba(79,70,229,0.04)', border: '1px solid rgba(79,70,229,0.12)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2"
+                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Strategy Logic
                 </p>
-
-                <p className="text-sm text-slate-300 mt-2 leading-6">
-                  BUY when SMA{" "}
-                  {parameters.fast_period}
-                  {" "}crosses above SMA{" "}
-                  {parameters.slow_period}.
-                  <br />
-                  SELL when SMA{" "}
-                  {parameters.fast_period}
-                  {" "}crosses below SMA{" "}
-                  {parameters.slow_period}.
+                <p className="text-xs leading-6" style={{ color: 'var(--qn-text-2)', fontFamily: "'Inter', sans-serif" }}>
+                  <span className="font-semibold" style={{ color: 'var(--qn-bull)' }}>BUY</span> when {strategyType === "SMA_CROSSOVER" ? "SMA" : "EMA"} {parameters.fast_period} crosses above {strategyType === "SMA_CROSSOVER" ? "SMA" : "EMA"} {parameters.slow_period}.<br />
+                  <span className="font-semibold" style={{ color: 'var(--qn-bear)' }}>SELL</span> when {strategyType === "SMA_CROSSOVER" ? "SMA" : "EMA"} {parameters.fast_period} crosses below {strategyType === "SMA_CROSSOVER" ? "SMA" : "EMA"} {parameters.slow_period}.
                 </p>
-
-              </div>
-            )}
-
-
-            {strategyType ===
-              "EMA_CROSSOVER" && (
-              <div className="mt-6 bg-slate-800/60 rounded-xl p-4">
-
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Strategy Logic
-                </p>
-
-                <p className="text-sm text-slate-300 mt-2 leading-6">
-                  BUY when EMA{" "}
-                  {parameters.fast_period}
-                  {" "}crosses above EMA{" "}
-                  {parameters.slow_period}.
-                  <br />
-                  SELL when EMA{" "}
-                  {parameters.fast_period}
-                  {" "}crosses below EMA{" "}
-                  {parameters.slow_period}.
-                </p>
-
               </div>
             )}
 
@@ -1319,75 +1119,52 @@ export default function Strategy() {
       {/* ====================================== */}
 
       {paperTradeResult && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="qn-card p-6 animate-fade-up">
 
-          <h2 className="text-xl font-semibold text-white">
-            Paper Trading Result
-          </h2>
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-2 h-2 rounded-full" style={{ background: 'var(--qn-bull)' }} />
+            <h2 className="text-base font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
+              Paper Trading Result
+            </h2>
+          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
-            <div>
-              <p className="text-sm text-slate-500">
-                Signal
-              </p>
-
-              <p
-                className={`text-xl font-bold mt-1 ${
-                  paperTradeResult.signal ===
-                  "BUY"
-                    ? "text-green-400"
-                    : paperTradeResult.signal ===
-                      "SELL"
-                    ? "text-red-400"
-                    : "text-yellow-400"
-                }`}
-              >
+            <div className="rounded-xl p-4" style={{ background: '#f5f7ff', border: '1px solid var(--qn-border)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>Signal</p>
+              <p className="text-2xl font-black" style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                color: paperTradeResult.signal === "BUY" ? 'var(--qn-bull)' : paperTradeResult.signal === "SELL" ? 'var(--qn-bear)' : 'var(--qn-gold)',
+              }}>
                 {paperTradeResult.signal}
               </p>
             </div>
 
-
-            <div>
-              <p className="text-sm text-slate-500">
-                Action
-              </p>
-
-              <p className="text-xl font-bold text-white mt-1">
+            <div className="rounded-xl p-4" style={{ background: '#f5f7ff', border: '1px solid var(--qn-border)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>Action</p>
+              <p className="text-xl font-black" style={{ color: 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
                 {paperTradeResult.action}
               </p>
             </div>
 
-
-            <div>
-              <p className="text-sm text-slate-500">
-                Price
-              </p>
-
-              <p className="text-xl font-bold text-white mt-1">
-                ₹
-                {Number(
-                  paperTradeResult.price
-                ).toFixed(2)}
+            <div className="rounded-xl p-4" style={{ background: '#f5f7ff', border: '1px solid var(--qn-border)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>Price</p>
+              <p className="text-xl font-black" style={{ color: 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
+                ₹{Number(paperTradeResult.price).toFixed(2)}
               </p>
             </div>
 
-
-            <div>
-              <p className="text-sm text-slate-500">
-                Symbol
-              </p>
-
-              <p className="text-xl font-bold text-white mt-1">
+            <div className="rounded-xl p-4" style={{ background: '#f5f7ff', border: '1px solid var(--qn-border)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>Symbol</p>
+              <p className="text-xl font-black" style={{ color: 'var(--qn-indigo)', fontFamily: "'JetBrains Mono', monospace" }}>
                 {paperTradeResult.symbol}
               </p>
             </div>
 
           </div>
 
-
           {paperTradeResult.message && (
-            <p className="mt-5 text-sm text-yellow-400">
+            <p className="mt-5 text-sm font-medium" style={{ color: 'var(--qn-gold)', fontFamily: "'Inter', sans-serif" }}>
               {paperTradeResult.message}
             </p>
           )}
@@ -1400,230 +1177,159 @@ export default function Strategy() {
       {/* Saved Strategies */}
       {/* ====================================== */}
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <div className="qn-card p-6">
 
         <div className="flex items-center justify-between mb-6">
-
           <div>
-
-            <h2 className="text-xl font-semibold text-white">
+            <h2 className="text-base font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
               My Strategies
             </h2>
-
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-xs mt-0.5" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
               Your saved trading strategies
             </p>
-
           </div>
-
 
           <button
             onClick={loadStrategies}
             disabled={loading}
-            className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+            className="qn-btn-ghost px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
           >
-            {loading
-              ? "Loading..."
-              : "Refresh"}
+            {loading ? "Loading…" : "Refresh"}
           </button>
-
         </div>
 
-
         {loading ? (
-
-          <p className="text-slate-500 text-center py-8">
-            Loading strategies...
-          </p>
+          <div className="space-y-3">
+            {[1,2,3].map(i => (
+              <div key={i} className="h-20 rounded-xl animate-pulse"
+                style={{ background: 'rgba(79,70,229,0.05)', border: '1px solid rgba(79,70,229,0.08)' }} />
+            ))}
+          </div>
 
         ) : strategies.length === 0 ? (
 
-          <div className="text-center py-10">
-
-            <p className="text-slate-500">
-              No strategies created yet.
+          <div className="text-center py-14">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4"
+              style={{ background: 'rgba(79,70,229,0.06)', border: '1px solid rgba(79,70,229,0.12)' }}>
+              📋
+            </div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--qn-text-2)', fontFamily: "'Space Grotesk', sans-serif" }}>
+              No strategies yet
             </p>
-
-            <p className="text-sm text-slate-600 mt-2">
-              Create your first strategy above.
+            <p className="text-xs mt-1" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+              Create your first strategy using the form above.
             </p>
-
           </div>
 
         ) : (
 
           <div className="space-y-4">
+            {strategies.map((strategy) => {
+              const savedParameters = strategy.parameters || {};
+              return (
+                <div
+                  key={strategy.id}
+                  className="rounded-xl p-5 transition-all"
+                  style={{ background: '#f5f7ff', border: '1px solid rgba(79,70,229,0.10)' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.22)'; e.currentTarget.style.background = 'rgba(79,70,229,0.03)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.10)'; e.currentTarget.style.background = '#f5f7ff'; }}
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
 
-            {strategies.map(
-              (strategy) => {
+                    {/* Details */}
+                    <div className="min-w-0">
+                      <h3 className="text-base font-bold truncate" style={{ color: 'var(--qn-text-1)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {strategy.name}
+                      </h3>
+                      <p className="text-sm mt-0.5 font-medium" style={{ color: 'var(--qn-text-2)', fontFamily: "'JetBrains Mono', monospace" }}>
+                        {strategy.symbol} · {getStrategyLabel(strategy.strategy_type)}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+                        {strategy.asset_type || "STOCK"} · {getTradingStyleLabel(strategy.trading_style || "INTRADAY")} · {getTimeframeLabel(strategy.timeframe || "1d")}
+                      </p>
 
-                const savedParameters =
-                  strategy.parameters ||
-                  {};
-
-                return (
-
-                  <div
-                    key={
-                      strategy.id
-                    }
-                    className="bg-slate-800/60 border border-slate-700 rounded-xl p-5"
-                  >
-
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-
-                      {/* Details */}
-
-                      <div>
-
-                        <h3 className="text-lg font-semibold text-white">
-                          {strategy.name}
-                        </h3>
-
-                        <p className="text-sm text-slate-400 mt-1">
-                          {strategy.symbol}
-                          {" • "}
-                          {getStrategyLabel(
-                            strategy.strategy_type
-                          )}
-                        </p>
-
-
-                        <p className="text-sm text-slate-500 mt-2">
-
-                          {strategy.asset_type ||
-                            "STOCK"}
-
-                          {" • "}
-
-                          {getTradingStyleLabel(
-                            strategy.trading_style ||
-                              "INTRADAY"
-                          )}
-
-                          {" • "}
-
-                          {getTimeframeLabel(
-                            strategy.timeframe ||
-                              "1d"
-                          )}
-
-                        </p>
-
-
-                        {/* Parameters */}
-
-                        <div className="flex flex-wrap gap-2 mt-3">
-
-                          {Object.entries(
-                            savedParameters
-                          ).map(
-                            ([key, value]) => (
-
-                              <span
-                                key={
-                                  key
-                                }
-                                className="px-3 py-1 rounded-full bg-slate-700 text-xs text-slate-300"
-                              >
-                                {key.replace(
-                                  /_/g,
-                                  " "
-                                )}
-                                :{" "}
-                                {value}
-                              </span>
-
-                            )
-                          )}
-
-                        </div>
-
-
-                        {/* Risk */}
-
-                        <p className="text-sm text-slate-500 mt-3">
-
-                          Stop Loss:{" "}
-
-                          {strategy.stop_loss_percent ??
-                            "-"}
-                          %
-
-                          {" • "}
-
-                          Risk : Reward: 1:
-
-                          {strategy.risk_reward_ratio ??
-                            "-"}
-
-                        </p>
-
+                      {/* Parameters */}
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {Object.entries(savedParameters).map(([key, value]) => (
+                          <span
+                            key={key}
+                            className="px-2.5 py-1 rounded-full text-[10px] font-semibold"
+                            style={{
+                              background: 'rgba(79,70,229,0.07)',
+                              color: 'var(--qn-indigo)',
+                              border: '1px solid rgba(79,70,229,0.15)',
+                              fontFamily: "'JetBrains Mono', monospace",
+                            }}
+                          >
+                            {key.replace(/_/g, " ")}: {value}
+                          </span>
+                        ))}
                       </div>
 
+                      {/* Risk info */}
+                      <p className="text-xs mt-3" style={{ color: 'var(--qn-text-3)', fontFamily: "'Inter', sans-serif" }}>
+                        <span style={{ color: 'var(--qn-bear)', fontWeight: 600 }}>
+                          SL: {strategy.stop_loss_percent ?? "-"}%
+                        </span>
+                        {" · "}
+                        <span style={{ color: 'var(--qn-indigo)', fontWeight: 600 }}>
+                          R:R 1:{strategy.risk_reward_ratio ?? "-"}
+                        </span>
+                      </p>
+                    </div>
 
-                      {/* Actions */}
+                    {/* Actions */}
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <button
+                        onClick={() => handlePaperTrade(strategy.id)}
+                        disabled={paperTradingId === strategy.id}
+                        className="px-4 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                        style={{
+                          background: 'linear-gradient(135deg, #059669, #0d9488)',
+                          color: '#fff',
+                          border: 'none',
+                          fontFamily: "'Space Grotesk', sans-serif",
+                          boxShadow: '0 4px 12px rgba(5,150,105,0.20)',
+                        }}
+                      >
+                        {paperTradingId === strategy.id ? "Running…" : "Paper Trade"}
+                      </button>
 
-                      <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() => navigate("/backtest", { state: { strategy } })}
+                        className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                        style={{
+                          background: 'linear-gradient(135deg, #4f46e5, #6d28d9)',
+                          color: '#fff',
+                          border: 'none',
+                          fontFamily: "'Space Grotesk', sans-serif",
+                          boxShadow: '0 4px 12px rgba(79,70,229,0.20)',
+                        }}
+                      >
+                        Backtest
+                      </button>
 
-                        <button
-                          onClick={() =>
-                            handlePaperTrade(
-                              strategy.id
-                            )
-                          }
-                          disabled={
-                            paperTradingId ===
-                            strategy.id
-                          }
-                          className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition"
-                        >
-                          {paperTradingId ===
-                          strategy.id
-                            ? "Running..."
-                            : "Paper Trade"}
-                        </button>
-
-
-                        <button
-                          onClick={() =>
-                            navigate(
-                              "/backtest",
-                              {
-                                state: {
-                                  strategy:
-                                    strategy,
-                                },
-                              }
-                            )
-                          }
-                          className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
-                        >
-                          Backtest
-                        </button>
-
-
-                        <button
-                          onClick={() =>
-                            handleDelete(
-                              strategy.id
-                            )
-                          }
-                          className="px-4 py-2 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 transition"
-                        >
-                          Delete
-                        </button>
-
-                      </div>
-
+                      <button
+                        onClick={() => handleDelete(strategy.id)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                        style={{
+                          background: 'rgba(220,38,38,0.07)',
+                          color: 'var(--qn-bear)',
+                          border: '1px solid rgba(220,38,38,0.18)',
+                          fontFamily: "'Space Grotesk', sans-serif",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; }}
+                      >
+                        Delete
+                      </button>
                     </div>
 
                   </div>
-
-                );
-              }
-            )}
-
+                </div>
+              );
+            })}
           </div>
 
         )}

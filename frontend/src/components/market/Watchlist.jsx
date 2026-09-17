@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getMarketHistory } from "@/services/marketService";
 import { TrendingUp, TrendingDown, Star } from "lucide-react";
 
@@ -78,15 +78,15 @@ export default function Watchlist({ selectedSymbol, onSelectStock }) {
                 onClick={() => onSelectStock(stock.symbol)}
                 className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left transition-all"
                 style={{
-                  background: isSelected ? 'rgba(99,102,241,0.12)' : 'rgba(12,15,26,0.7)',
-                  border: isSelected ? '1px solid rgba(99,102,241,0.35)' : '1px solid rgba(99,102,241,0.08)',
-                  boxShadow: isSelected ? '0 0 12px rgba(99,102,241,0.08)' : 'none',
+                  background: isSelected ? 'rgba(79,70,229,0.08)' : '#f5f7ff',
+                  border: isSelected ? '1px solid rgba(79,70,229,0.32)' : '1px solid rgba(79,70,229,0.08)',
+                  boxShadow: isSelected ? '0 1px 8px rgba(79,70,229,0.06)' : 'none',
                 }}
-                onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.22)'; e.currentTarget.style.background = 'rgba(99,102,241,0.06)'; } }}
-                onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.08)'; e.currentTarget.style.background = 'rgba(12,15,26,0.7)'; } }}
+                onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.20)'; e.currentTarget.style.background = 'rgba(79,70,229,0.04)'; } }}
+                onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.08)'; e.currentTarget.style.background = '#f5f7ff'; } }}
               >
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: isSelected ? '#a5b4fc' : 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
+                  <p className="text-sm font-semibold" style={{ color: isSelected ? '#4f46e5' : 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
                     {stock.symbol.replace(".NS", "")}
                   </p>
                   <p className="text-[10px]" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>

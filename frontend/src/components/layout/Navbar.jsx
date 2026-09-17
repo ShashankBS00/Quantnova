@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Search, Bell, Moon } from "lucide-react";
 import logo from "@/assets/logo.svg";
 
@@ -18,8 +18,8 @@ export default function Navbar() {
 
   return (
     <header className="w-full z-40 shrink-0" style={{
-      background: 'linear-gradient(180deg, #090c18 0%, #070a14 100%)',
-      borderBottom: '1px solid rgba(99, 102, 241, 0.12)',
+      background: 'linear-gradient(180deg, #ffffff 0%, #fafbff 100%)',
+      borderBottom: '1px solid rgba(79, 70, 229, 0.12)',
     }}>
       {/* 1. Main Navigation Bar */}
       <div className="h-16 flex items-center justify-between px-6 gap-4">
@@ -37,14 +37,14 @@ export default function Navbar() {
           </div>
           <div className="flex items-baseline space-x-2">
             <span className="text-xl font-bold tracking-tight"
-              style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#e2e8f0' }}>
-              Quant<span style={{ color: '#818cf8' }}>Nova</span>
+              style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#1a1f3c' }}>
+              Quant<span style={{ color: '#4f46e5' }}>Nova</span>
             </span>
             <span className="text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-md font-bold"
               style={{
-                background: 'rgba(99,102,241,0.12)',
-                color: '#a5b4fc',
-                border: '1px solid rgba(99,102,241,0.25)',
+                background: 'rgba(79,70,229,0.08)',
+                color: '#4f46e5',
+                border: '1px solid rgba(79,70,229,0.20)',
                 fontFamily: "'JetBrains Mono', monospace",
               }}>
               Live Lab
@@ -64,18 +64,18 @@ export default function Navbar() {
             placeholder="Search stocks (e.g. RELIANCE, NIFTY50)..."
             className="w-full rounded-full py-2.5 pl-10 pr-4 text-[13px] transition-all"
             style={{
-              background: 'rgba(12,15,26,0.8)',
-              border: '1px solid rgba(99,102,241,0.18)',
+              background: '#f5f7ff',
+              border: '1px solid rgba(79,70,229,0.16)',
               color: 'var(--qn-text-1)',
               fontFamily: "'Inter', sans-serif",
             }}
             onFocus={e => {
-              e.currentTarget.style.borderColor = 'rgba(99,102,241,0.50)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.10)';
+              e.currentTarget.style.borderColor = 'rgba(79,70,229,0.48)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)';
               e.currentTarget.style.outline = 'none';
             }}
             onBlur={e => {
-              e.currentTarget.style.borderColor = 'rgba(99,102,241,0.18)';
+              e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)';
               e.currentTarget.style.boxShadow = 'none';
             }}
           />
@@ -86,8 +86,8 @@ export default function Navbar() {
           {/* Live badge */}
           <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold"
             style={{
-              background: 'rgba(16,217,134,0.08)',
-              border: '1px solid rgba(16,217,134,0.20)',
+              background: 'rgba(5,150,105,0.08)',
+              border: '1px solid rgba(5,150,105,0.20)',
               color: 'var(--qn-bull)',
               fontFamily: "'JetBrains Mono', monospace",
             }}>
@@ -100,12 +100,12 @@ export default function Navbar() {
             aria-label="Notifications"
             className="relative p-2 rounded-xl transition-all"
             style={{
-              background: 'rgba(12,15,26,0.8)',
-              border: '1px solid rgba(99,102,241,0.15)',
+              background: '#f5f7ff',
+              border: '1px solid rgba(79,70,229,0.14)',
               color: 'var(--qn-text-2)',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.35)'; e.currentTarget.style.color = 'var(--qn-text-1)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.15)'; e.currentTarget.style.color = 'var(--qn-text-2)'; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.32)'; e.currentTarget.style.color = 'var(--qn-text-1)'; e.currentTarget.style.background = '#eef0fb'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.14)'; e.currentTarget.style.color = 'var(--qn-text-2)'; e.currentTarget.style.background = '#f5f7ff'; }}
           >
             <Bell size={16} />
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full" style={{ background: 'var(--qn-bear)' }} />
@@ -116,12 +116,12 @@ export default function Navbar() {
             aria-label="Theme Toggle"
             className="p-2 rounded-xl transition-all hidden md:block"
             style={{
-              background: 'rgba(12,15,26,0.8)',
-              border: '1px solid rgba(99,102,241,0.15)',
+              background: '#f5f7ff',
+              border: '1px solid rgba(79,70,229,0.14)',
               color: 'var(--qn-text-2)',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.35)'; e.currentTarget.style.color = 'var(--qn-text-1)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.15)'; e.currentTarget.style.color = 'var(--qn-text-2)'; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.32)'; e.currentTarget.style.color = 'var(--qn-text-1)'; e.currentTarget.style.background = '#eef0fb'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.14)'; e.currentTarget.style.color = 'var(--qn-text-2)'; e.currentTarget.style.background = '#f5f7ff'; }}
           >
             <Moon size={16} />
           </button>
@@ -129,17 +129,17 @@ export default function Navbar() {
           {/* User avatar pill */}
           <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full cursor-pointer transition-all"
             style={{
-              background: 'rgba(12,15,26,0.8)',
-              border: '1px solid rgba(99,102,241,0.18)',
+              background: '#f5f7ff',
+              border: '1px solid rgba(79,70,229,0.16)',
             }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,0.40)'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,0.18)'}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.36)'; e.currentTarget.style.background = '#eef0fb'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.background = '#f5f7ff'; }}
           >
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
               style={{
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(124,58,237,0.20))',
-                border: '1px solid rgba(99,102,241,0.35)',
-                color: '#a5b4fc',
+                background: 'linear-gradient(135deg, rgba(79,70,229,0.15), rgba(109,40,217,0.12))',
+                border: '1px solid rgba(79,70,229,0.28)',
+                color: '#4f46e5',
                 fontFamily: "'JetBrains Mono', monospace",
               }}>
               {username.slice(0, 2).toUpperCase()}
@@ -159,8 +159,8 @@ export default function Navbar() {
       {/* 2. Infinite Scrolling Ticker Tape */}
       <div className="h-8 overflow-hidden flex items-center relative w-full"
         style={{
-          background: 'rgba(6,8,16,0.7)',
-          borderTop: '1px solid rgba(99,102,241,0.08)',
+          background: 'rgba(238,240,251,0.75)',
+          borderTop: '1px solid rgba(79,70,229,0.08)',
         }}>
         <div className="ticker-tape-scroll space-x-8 px-4 cursor-pointer">
           {[...TICKERS, ...TICKERS].map((item, idx) => (
