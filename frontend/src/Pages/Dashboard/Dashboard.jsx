@@ -1,359 +1,161 @@
-import React, { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  TrendingUp,
-  Activity,
-  Sparkles,
-  Clock,
-  ArrowUpRight,
-  Zap,
-  Plus,
-  Wallet,
-  BarChart3,
-} from "lucide-react";
+import { Activity, ArrowUpRight, BarChart3, Clock, Plus, RefreshCw, Sparkles, TrendingDown, TrendingUp, Wallet, Zap } from "lucide-react";
+
 import MarketStatus from "@/components/market/MarketStatus";
 import MarketChart from "@/components/dashboard/MarketChart";
 import Watchlist from "@/components/market/Watchlist";
 import PredictionCard from "@/components/prediction/PredictionCard";
+import { getCurrentMarketData } from "@/services/portfolioService";
+import { getMarketHistory } from "@/services/marketService";
+import { getTradingAccount } from "@/services/tradingService";
+import { getTradingAnalytics } from "@/services/tradingAnalyticsService";
+
+const DEFAULT_SYMBOLS = ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
+const RANGE_PERIODS = { "1W": "5d", "1M": "1mo", "3M": "3mo" };
+const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+function linePath(values, width = 500, height = 150) {
+  if (values.length < 2) return "";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || Math.max(Math.abs(max) * 0.02, 1);
+  const points = values.map((value, index) => ({ x: (index / (values.length - 1)) * width, y: height - 12 - ((value - min) / range) * (height - 28) }));
+  return points.reduce((path, point, index) => `${path}${index ? " L" : "M"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`, "");
+}
+
+function areaPath(path, width = 500, height = 150) {
+  return path ? `${path} L ${width} ${height} L 0 ${height} Z` : "";
+}
+
+function calculateSharpe(values) {
+  if (values.length < 3) return null;
+  const returns = values.slice(1).map((value, index) => (values[index] ? (value - values[index]) / values[index] : 0));
+  const average = returns.reduce((sum, value) => sum + value, 0) / returns.length;
+  const variance = returns.reduce((sum, value) => sum + (value - average) ** 2, 0) / returns.length;
+  const deviation = Math.sqrt(variance);
+  return deviation ? (average / deviation) * Math.sqrt(returns.length) : null;
+}
 
 export default function Dashboard() {
   const [selectedSymbol, setSelectedSymbol] = useState("RELIANCE.NS");
   const [activeRange, setActiveRange] = useState("1M");
+  const [account, setAccount] = useState(null);
+  const [quotes, setQuotes] = useState({});
+  const [equityHistory, setEquityHistory] = useState([]);
+  const [benchmarkHistory, setBenchmarkHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const todayStr = new Intl.DateTimeFormat("en-IN", {
-    weekday: "long",
+  async function loadDashboard({ quiet = false } = {}) {
+    if (quiet) setRefreshing(true); else setLoading(true);
+    try {
+      const currentAccount = await getTradingAccount();
+      const holdingSymbols = Object.keys(currentAccount.holdings || {});
+      const signalSymbols = Array.from(new Set([...holdingSymbols, ...DEFAULT_SYMBOLS])).slice(0, 3);
+      const [quoteResults, analyticsResult, benchmarkResult] = await Promise.all([
+        Promise.allSettled(signalSymbols.map((symbol) => getCurrentMarketData(symbol))),
+        getTradingAnalytics().catch((error) => {
+          console.error("Failed to load equity history:", error);
+          return { equityHistory: [] };
+        }),
+        getMarketHistory(selectedSymbol, RANGE_PERIODS[activeRange]).catch((error) => {
+          console.error("Failed to load benchmark history:", error);
+          return { data: [] };
+        }),
+      ]);
+
+      const quoteMap = {};
+      quoteResults.forEach((result, index) => { if (result.status === "fulfilled") quoteMap[signalSymbols[index]] = result.value; });
+      setAccount(currentAccount);
+      setQuotes(quoteMap);
+      setEquityHistory(analyticsResult.equityHistory || []);
+      setBenchmarkHistory(benchmarkResult?.data || []);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard();
+    const interval = setInterval(() => loadDashboard({ quiet: true }), 30000);
+    return () => clearInterval(interval);
+  }, [selectedSymbol, activeRange]);
+
+  const overview = useMemo(() => {
+    const holdings = Object.entries(account?.holdings || {});
+    const currentHoldingsValue = holdings.reduce((sum, [symbol, holding]) => sum + holding.quantity * (quotes[symbol]?.currentPrice ?? holding.average_price), 0);
+    const previousHoldingsValue = holdings.reduce((sum, [symbol, holding]) => sum + holding.quantity * (quotes[symbol]?.previousClose ?? holding.average_price), 0);
+    const portfolioValue = Number(account?.cash || 0) + currentHoldingsValue;
+    const previousValue = Number(account?.cash || 0) + previousHoldingsValue;
+    const todayPnl = portfolioValue - previousValue;
+    const todayPnlPercent = previousValue ? (todayPnl / previousValue) * 100 : 0;
+    const totalTrades = (account?.winning_trades || 0) + (account?.losing_trades || 0);
+    const winRate = totalTrades ? ((account.winning_trades / totalTrades) * 100) : 0;
+    const equityValues = equityHistory.map((point) => Number(point.equity)).filter(Number.isFinite);
+    const sharpe = calculateSharpe(equityValues);
+    const initialCash = Number(account?.initial_cash || 100000);
+    return { portfolioValue, todayPnl, todayPnlPercent, totalTrades, winRate, sharpe, totalReturn: portfolioValue - initialCash, totalReturnPercent: initialCash ? ((portfolioValue - initialCash) / initialCash) * 100 : 0, equityValues };
+  }, [account, quotes, equityHistory]);
+
+  const curve = useMemo(() => {
+    const portfolioValues = overview.equityValues.length ? overview.equityValues : [overview.portfolioValue];
+    const benchmarkValues = benchmarkHistory.map((item) => Number(item.close)).filter(Number.isFinite);
+    return { portfolioPath: linePath(portfolioValues), benchmarkPath: linePath(benchmarkValues), portfolioArea: areaPath(linePath(portfolioValues)), benchmarkArea: areaPath(linePath(benchmarkValues)), hasData: portfolioValues.length > 1 || benchmarkValues.length > 1 };
+  }, [overview, benchmarkHistory]);
+
+  const signalSymbols = Array.from(new Set([...Object.keys(account?.holdings || {}), ...DEFAULT_SYMBOLS])).slice(0, 3);
+  const signals = signalSymbols.map((ticker) => {
+    const quote = quotes[ticker];
+    const change = quote?.currentPrice && quote?.previousClose ? ((quote.currentPrice - quote.previousClose) / quote.previousClose) * 100 : null;
+    const action = change === null ? "HOLD" : change >= 0 ? "BUY" : "SELL";
+    return { ticker, symbol: ticker.replace(".NS", ""), price: quote?.currentPrice, change, action, confidence: change === null ? null : Math.min(99, 55 + Math.abs(change) * 12) };
+  });
+
+  const now = new Date();
+  const indiaParts = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date());
-
-  // Check if NSE is open (Mon-Fri, 9:15 AM - 3:30 PM IST)
-  const now = new Date();
-  const day = now.getDay();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const isMarketOpen = day >= 1 && day <= 5 && currentMinutes >= 555 && currentMinutes <= 930;
-
-  // AI Signals dataset
-  const aiSignals = [
-    { symbol: "RELIANCE", ticker: "RELIANCE.NS", price: "₹2,942", change: "+1.8%", conf: "74%", action: "BUY" },
-    { symbol: "TCS", ticker: "TCS.NS", price: "₹3,814", change: "-0.4%", conf: "68%", action: "SELL" },
-    { symbol: "INFY", ticker: "INFY.NS", price: "₹1,623", change: "+2.1%", conf: "81%", action: "BUY" },
-  ];
-
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const indiaPart = (type) => indiaParts.find((part) => part.type === type)?.value || "";
+  const indiaHour = Number(indiaPart("hour"));
+  const indiaMinute = Number(indiaPart("minute"));
+  const indiaWeekday = indiaPart("weekday");
+  const todayStr = `${indiaWeekday}, ${indiaPart("day")} ${indiaPart("month")} ${indiaPart("year")}`;
+  const greeting = indiaHour < 12 ? "Good morning" : indiaHour < 17 ? "Good afternoon" : "Good evening";
+  const greetingIcon = indiaHour < 12 ? "☀️" : indiaHour < 17 ? "🌤️" : "🌙";
+  const marketMinutes = indiaHour * 60 + indiaMinute;
+  const isMarketOpen = ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(indiaWeekday) && marketMinutes >= 555 && marketMinutes <= 930;
   const kpiCards = [
-    {
-      label: "PORTFOLIO VALUE",
-      value: "₹1,18,420",
-      sub: "+₹18,420 · +18.4%",
-      subColor: 'var(--qn-bull)',
-      icon: Wallet,
-      iconColor: '#6366f1',
-      accentClass: 'qn-card-violet',
-    },
-    {
-      label: "TODAY'S P&L",
-      value: "+₹1,240",
-      sub: "+1.1% today",
-      subColor: 'var(--qn-bull)',
-      icon: TrendingUp,
-      iconColor: 'var(--qn-bull)',
-      accentClass: 'qn-card-bull',
-    },
-    {
-      label: "WIN RATE",
-      value: "63%",
-      sub: "42 trades total",
-      subColor: 'var(--qn-text-3)',
-      icon: BarChart3,
-      iconColor: 'var(--qn-cyan)',
-      accentClass: 'qn-card-cyan',
-    },
-    {
-      label: "SHARPE RATIO",
-      value: "1.84",
-      sub: "Risk-adjusted",
-      subColor: 'var(--qn-text-3)',
-      icon: Activity,
-      iconColor: '#6d28d9',
-      accentClass: 'qn-card-violet',
-    },
+    { label: "Portfolio value", value: loading ? "—" : money(overview.portfolioValue), sub: `${overview.totalReturn >= 0 ? "+" : "-"}${money(Math.abs(overview.totalReturn))} · ${overview.totalReturnPercent >= 0 ? "+" : ""}${overview.totalReturnPercent.toFixed(2)}%`, color: "var(--qn-indigo)", icon: Wallet, accent: "qn-card-violet" },
+    { label: "Today's P&L", value: loading ? "—" : `${overview.todayPnl >= 0 ? "+" : "-"}${money(Math.abs(overview.todayPnl))}`, sub: `${overview.todayPnlPercent >= 0 ? "+" : ""}${overview.todayPnlPercent.toFixed(2)}% today`, color: overview.todayPnl >= 0 ? "var(--qn-bull)" : "var(--qn-bear)", icon: overview.todayPnl >= 0 ? TrendingUp : TrendingDown, accent: "qn-card-bull" },
+    { label: "Win rate", value: loading ? "—" : `${overview.winRate.toFixed(2)}%`, sub: `${overview.totalTrades} closed trades`, color: "var(--qn-cyan)", icon: BarChart3, accent: "qn-card-cyan" },
+    { label: "Sharpe ratio", value: loading ? "—" : overview.sharpe === null ? "—" : overview.sharpe.toFixed(2), sub: overview.sharpe === null ? "Need 3+ closed trades" : "Risk-adjusted return", color: "var(--qn-violet)", icon: Activity, accent: "qn-card-violet" },
   ];
 
   return (
     <div className="mx-auto w-full max-w-[1580px] space-y-5 pb-12 select-none animate-fade-up">
+      <header className="flex flex-col gap-4 rounded-2xl border px-5 py-4 md:flex-row md:items-center md:justify-between" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.92), rgba(238,240,251,0.78))", borderColor: "var(--qn-border)" }}><div><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-xl text-base" style={{ background: "rgba(79, 70, 229, 0.08)" }}>{greetingIcon}</span><h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--qn-text-1)" }}>{greeting}, Shashank</h1></div><p className="mt-2 text-sm" style={{ color: "var(--qn-text-2)" }}>Here’s your live paper-trading overview.</p><p className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--qn-text-3)", fontFamily: "'JetBrains Mono', monospace" }}><Clock size={12} /> {todayStr} <span>·</span><span style={{ color: isMarketOpen ? "var(--qn-bull)" : "var(--qn-text-2)" }}>{isMarketOpen ? "● NSE Open" : "○ NSE Closed"}</span>{lastUpdated && <span>· Updated {lastUpdated.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })}</span>}</p></div><div className="flex flex-wrap items-center gap-2.5"><button type="button" onClick={() => loadDashboard({ quiet: true })} disabled={refreshing} className="qn-btn-ghost inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50"><RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> Refresh</button><Link to="/trading" className="qn-btn-ghost flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold"><Plus size={14} /> Buy</Link><Link to="/backtest" className="qn-btn-primary flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold"><Zap size={14} /> Run Backtest</Link></div></header>
 
-      {/* 1. Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-2"
-            style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--qn-text-1)' }}>
-            Good morning, Shashank <span className="inline-block animate-bounce">👋</span>
-          </h1>
-          <p className="mt-1 text-xs font-medium flex items-center gap-1.5"
-            style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
-            <Clock size={12} style={{ color: 'var(--qn-text-3)' }} />
-            <span>{todayStr}</span>
-            <span style={{ color: 'var(--qn-text-3)', margin: '0 2px' }}>·</span>
-            <span style={{ color: isMarketOpen ? 'var(--qn-bull)' : 'var(--qn-text-2)', fontWeight: 700 }}>
-              {isMarketOpen ? "● NSE Open" : "○ NSE Closed"}
-            </span>
-          </p>
-        </div>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">{kpiCards.map((card) => { const Icon = card.icon; return <article key={card.label} className={`qn-card ${card.accent} p-5`}><div className="mb-3 flex items-start justify-between"><p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--qn-text-3)", fontFamily: "'JetBrains Mono', monospace" }}>{card.label}</p><span className="rounded-lg p-1.5" style={{ background: "rgba(79,70,229,0.07)" }}><Icon size={14} style={{ color: card.color }} /></span></div><h2 className="mb-1.5 text-2xl font-black" style={{ color: card.color, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.02em" }}>{card.value}</h2><p className="text-xs font-semibold" style={{ color: card.color === "var(--qn-bear)" ? "var(--qn-bear)" : "var(--qn-text-3)", fontFamily: "'JetBrains Mono', monospace" }}>{card.sub}</p></article>; })}</section>
 
-        <div className="flex items-center gap-2.5">
-          <Link
-            to="/trading"
-            className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all qn-btn-ghost"
-          >
-            <Plus size={14} style={{ color: '#4f46e5' }} /> Buy
-          </Link>
-          <Link
-            to="/backtest"
-            className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all qn-btn-primary"
-          >
-            <Zap size={14} /> Run Backtest
-          </Link>
-        </div>
-      </div>
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-3"><article className="qn-card flex min-w-0 flex-col p-5 lg:col-span-2"><div className="mb-1 flex items-center justify-between"><div><h3 className="text-sm font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>Portfolio performance</h3><p className="text-[11px]" style={{ color: "var(--qn-text-3)", fontFamily: "'JetBrains Mono', monospace" }}>Account equity vs {selectedSymbol.replace(".NS", "")} benchmark</p></div><div className="flex gap-1 rounded-xl p-1" style={{ background: "var(--qn-surface-2)", border: "1px solid var(--qn-border)" }}>{Object.keys(RANGE_PERIODS).map((range) => <button key={range} type="button" onClick={() => setActiveRange(range)} className="rounded-lg px-3 py-1 text-xs font-bold transition-all" style={{ background: activeRange === range ? "linear-gradient(135deg, #4f46e5, #6d28d9)" : "transparent", color: activeRange === range ? "#fff" : "var(--qn-text-2)", fontFamily: "'JetBrains Mono', monospace" }}>{range}</button>)}</div></div><div className="relative mt-6 flex h-48 w-full items-end">{curve.hasData ? <svg className="h-full w-full overflow-visible" viewBox="0 0 500 150" preserveAspectRatio="none"><defs><linearGradient id="dashboardPortfolioArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity="0.30" /><stop offset="100%" stopColor="#6366f1" stopOpacity="0" /></linearGradient></defs>{[50, 100].map((y) => <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="rgba(99,102,241,0.10)" strokeDasharray="4 6" />)}{curve.benchmarkPath && <path d={curve.benchmarkPath} fill="none" stroke="#0891b2" strokeWidth="1.5" strokeDasharray="6 4" opacity="0.7" />}{curve.portfolioArea && <path d={curve.portfolioArea} fill="url(#dashboardPortfolioArea)" />}{curve.portfolioPath && <path d={curve.portfolioPath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" />}</svg> : <div className="flex h-full w-full items-center justify-center text-xs" style={{ color: "var(--qn-text-3)" }}>Complete more trades to build your equity history.</div>}<div className="absolute right-0 top-0 flex items-center gap-4"><span className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--qn-text-3)", fontFamily: "'JetBrains Mono', monospace" }}><i className="h-0.5 w-4 rounded" style={{ background: "#6366f1" }} /> Portfolio</span><span className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--qn-text-3)", fontFamily: "'JetBrains Mono', monospace" }}><i className="h-0.5 w-4 rounded" style={{ background: "#0891b2" }} /> Benchmark</span></div></div></article>
+        <article className="qn-card qn-card-violet p-5"><div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><Sparkles size={14} style={{ color: "var(--qn-gold)" }} /><h3 className="text-sm font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>Market signals</h3></div><span className="qn-badge" style={{ background: "rgba(5,150,105,0.08)", color: "var(--qn-bull)", border: "1px solid rgba(5,150,105,0.20)" }}>LIVE</span></div><div className="space-y-2.5">{signals.map((signal) => { const isBuy = signal.action === "BUY"; const isSell = signal.action === "SELL"; const color = isBuy ? "var(--qn-bull)" : isSell ? "var(--qn-bear)" : "var(--qn-gold)"; return <button key={signal.ticker} type="button" onClick={() => setSelectedSymbol(signal.ticker)} className="w-full rounded-xl p-3.5 text-left transition-all hover:-translate-y-0.5" style={{ background: "var(--qn-surface-2)", border: `1px solid ${selectedSymbol === signal.ticker ? "rgba(79,70,229,0.28)" : "var(--qn-border)"}` }}><div className="flex items-center justify-between"><div><h4 className="mb-0.5 text-sm font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'JetBrains Mono', monospace" }}>{signal.symbol}</h4><div className="flex items-center gap-2"><span className="text-sm font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'JetBrains Mono', monospace" }}>{signal.price ? money(signal.price) : "—"}</span><span className="text-[10px] font-bold" style={{ color }}>{signal.change === null ? "Awaiting quote" : `${signal.change >= 0 ? "+" : ""}${signal.change.toFixed(2)}%`}</span></div></div><span className="rounded-full px-3 py-1 text-xs font-black tracking-wider" style={{ color, background: isBuy ? "var(--qn-bull-dim)" : isSell ? "var(--qn-bear-dim)" : "var(--qn-gold-dim)", fontFamily: "'JetBrains Mono', monospace" }}>{signal.action}</span></div>{signal.confidence !== null && <p className="mt-2 text-[10px]" style={{ color: "var(--qn-text-3)", fontFamily: "'JetBrains Mono', monospace" }}>Momentum confidence {signal.confidence.toFixed(0)}%</p>}</button>; })}</div></article></section>
 
-      {/* 2. KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className={`qn-card ${card.accentClass} p-5`}>
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest"
-                  style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
-                  {card.label}
-                </p>
-                <div className="p-1.5 rounded-lg" style={{ background: 'rgba(79,70,229,0.07)' }}>
-                  <Icon size={14} style={{ color: card.iconColor }} />
-                </div>
-              </div>
-              <h2 className="text-2xl font-black mb-1.5"
-                style={{ color: 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.02em' }}>
-                {card.value}
-              </h2>
-              <p className="text-xs font-semibold" style={{ color: card.subColor, fontFamily: "'JetBrains Mono', monospace" }}>
-                {card.sub}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 3. Performance Chart & AI Signals */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left: Portfolio Performance Curve */}
-        <div className="lg:col-span-2 qn-card p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-1">
-            <div>
-              <h3 className="text-sm font-bold" style={{ color: 'var(--qn-text-1)', fontFamily: "'Space Grotesk', sans-serif" }}>
-                Portfolio Performance
-              </h3>
-              <p className="text-[11px]" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
-                Equity curve vs benchmark
-              </p>
-            </div>
-            <div className="flex items-center gap-1 p-1 rounded-xl"
-              style={{ background: 'rgba(238,240,251,0.90)', border: '1px solid rgba(79,70,229,0.12)' }}>
-              {["1W", "1M", "3M"].map((range) => {
-                const isActive = activeRange === range;
-                return (
-                  <button
-                    key={range}
-                    onClick={() => setActiveRange(range)}
-                    className="px-3 py-1 text-xs font-bold rounded-lg transition-all"
-                    style={{
-                      background: isActive ? 'linear-gradient(135deg, #4f46e5, #6d28d9)' : 'transparent',
-                      color: isActive ? '#fff' : 'var(--qn-text-2)',
-                      boxShadow: isActive ? '0 2px 8px rgba(79,70,229,0.25)' : 'none',
-                      fontFamily: "'JetBrains Mono', monospace",
-                    }}
-                  >
-                    {range}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* SVG Chart */}
-          <div className="relative mt-6 h-48 w-full flex items-end">
-            <svg
-              className="w-full h-full overflow-visible"
-              viewBox="0 0 500 150"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="curveGradMain" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
-                </linearGradient>
-                <linearGradient id="curveGradBenchmark" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.15" />
-                  <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
-                </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
-                  <feMerge>
-                    <feMergeNode in="coloredBlur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-
-              {/* Grid lines */}
-              {[50, 100].map((y) => (
-                <line key={y} x1="0" y1={y} x2="500" y2={y}
-                  stroke="rgba(99,102,241,0.08)" strokeDasharray="4 6" strokeWidth="1" />
-              ))}
-
-              {/* Benchmark area */}
-              <path
-                d="M 0 120 Q 250 105 500 70 L 500 150 L 0 150 Z"
-                fill="url(#curveGradBenchmark)"
-              />
-              <path
-                d="M 0 120 Q 250 105 500 70"
-                fill="none"
-                stroke="#06b6d4"
-                strokeWidth="1.5"
-                strokeDasharray="6 4"
-                strokeLinecap="round"
-                opacity="0.5"
-              />
-
-              {/* Main portfolio area */}
-              <path
-                d="M 0 115 Q 125 95 250 72 Q 375 48 500 18 L 500 150 L 0 150 Z"
-                fill="url(#curveGradMain)"
-              />
-              {/* Main line */}
-              <path
-                d="M 0 115 Q 125 95 250 72 Q 375 48 500 18"
-                fill="none"
-                stroke="#6366f1"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                filter="url(#glow)"
-              />
-
-              {/* Pulsing endpoint */}
-              <circle cx="500" cy="18" r="5" fill="#6366f1" opacity="0.25" className="animate-ping" />
-              <circle cx="500" cy="18" r="3" fill="#6366f1" />
-            </svg>
-
-            {/* Legend */}
-            <div className="absolute top-0 right-0 flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-0.5 rounded" style={{ background: '#6366f1' }} />
-                <span className="text-[10px]" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>Portfolio</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-0.5 rounded opacity-50" style={{ background: '#06b6d4', borderTop: '1px dashed #06b6d4' }} />
-                <span className="text-[10px]" style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>Benchmark</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: AI Signals */}
-        <div className="qn-card qn-card-violet p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles size={14} style={{ color: 'var(--qn-gold)' }} />
-              <h3 className="text-sm font-bold" style={{ color: 'var(--qn-text-1)', fontFamily: "'Space Grotesk', sans-serif" }}>
-                AI Signals
-              </h3>
-            </div>
-            <span className="qn-badge" style={{
-              background: 'rgba(5,150,105,0.08)',
-              color: 'var(--qn-bull)',
-              border: '1px solid rgba(5,150,105,0.20)',
-            }}>
-              Real-time
-            </span>
-          </div>
-
-          <div className="space-y-2.5 flex-1 flex flex-col justify-around">
-            {aiSignals.map((item) => {
-              const isBuy = item.action === "BUY";
-              return (
-                <div
-                  key={item.symbol}
-                  onClick={() => setSelectedSymbol(item.ticker)}
-                  className="p-3.5 rounded-xl cursor-pointer transition-all group"
-                  style={{
-                    background: '#f5f7ff',
-                    border: '1px solid rgba(79,70,229,0.10)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = 'rgba(79,70,229,0.28)';
-                    e.currentTarget.style.background = 'rgba(79,70,229,0.04)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = 'rgba(79,70,229,0.10)';
-                    e.currentTarget.style.background = '#f5f7ff';
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-bold mb-0.5"
-                        style={{ color: 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
-                        {item.symbol}
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold" style={{ color: 'var(--qn-text-1)', fontFamily: "'JetBrains Mono', monospace" }}>
-                          {item.price}
-                        </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                          style={{
-                            color: 'var(--qn-gold)',
-                            background: 'var(--qn-gold-dim)',
-                            fontFamily: "'JetBrains Mono', monospace",
-                          }}>
-                          {item.conf}
-                        </span>
-                      </div>
-                    </div>
-
-                    <span
-                      className="px-3 py-1 rounded-full text-xs font-black tracking-wider"
-                      style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        color: isBuy ? 'var(--qn-bull)' : 'var(--qn-bear)',
-                        background: isBuy ? 'var(--qn-bull-dim)' : 'var(--qn-bear-dim)',
-                        border: `1px solid ${isBuy ? 'rgba(5,150,105,0.25)' : 'rgba(220,38,38,0.25)'}`,
-                      }}
-                    >
-                      {item.action}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Market Status */}
-      <section>
-        <MarketStatus />
-      </section>
-
-      {/* 5. Interactive Chart */}
-      <section>
-        <MarketChart symbol={selectedSymbol} onSymbolChange={setSelectedSymbol} />
-      </section>
-
-      {/* 6. Watchlist & Prediction */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Watchlist selectedSymbol={selectedSymbol} onSelectStock={setSelectedSymbol} />
-        <PredictionCard />
-      </section>
-
+      <MarketStatus />
+      <MarketChart symbol={selectedSymbol} onSymbolChange={setSelectedSymbol} />
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-2"><Watchlist selectedSymbol={selectedSymbol} onSelectStock={setSelectedSymbol} /><PredictionCard /></section>
     </div>
   );
-} 
+}
