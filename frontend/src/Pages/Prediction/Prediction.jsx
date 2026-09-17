@@ -1,338 +1,939 @@
-import React, { useState } from "react";
-import { 
-  Brain, 
-  TrendingUp, 
-  TrendingDown, 
-  Target, 
-  Sparkles, 
-  Cpu, 
-  Gauge, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Search,
-  ExternalLink,
-  Sliders,
-  CheckCircle2
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  AlertCircle,
+  Brain,
+  ChevronDown,
+  Loader2,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+  Minus,
+  Activity,
+  Clock,
 } from "lucide-react";
-import { Link } from "react-router-dom";
 
-const PREDICTION_DATA = {
-  "RELIANCE.NS": {
-    name: "Reliance Industries Ltd",
-    currentPrice: 2942.50,
-    targetPrice: 3015.00,
-    signal: "STRONG BUY",
-    confidence: 84.5,
-    expectedReturn: "+2.46%",
-    timeHorizon: "Next 5 Trading Days",
-    primaryModel: "XGBoost Regressor + LSTM Ensemble",
-    modelAccuracy: "79.2%",
-    support: 2910.00,
-    resistance: 2985.00,
-    sentimentScore: "0.76 (Bullish)",
-    signalsBreakdown: [
-      { metric: "RSI Momentum (14D)", value: "58.4", state: "Bullish Divergence", isBull: true },
-      { metric: "EMA 20 / 50 Crossover", value: "Golden Cross", state: "Bullish Trend Confirmation", isBull: true },
-      { metric: "Order Book Imbalance", value: "+14.2% Bid Heavy", state: "Accumulation Pressure", isBull: true },
-      { metric: "IV Skew (Derivatives)", value: "Call Volume Dominant", state: "Upside Hedging", isBull: true },
-      { metric: "MACD Histogram", value: "+4.12", state: "Expanding Momentum", isBull: true },
-    ],
-    features: [
-      { name: "Order Flow Delta", weight: 34 },
-      { name: "Historical Volatility (20D)", weight: 26 },
-      { name: "5-Day Rolling Volume", weight: 22 },
-      { name: "Nifty 50 Beta Sensitivity", weight: 18 }
-    ]
-  },
-  "TCS.NS": {
-    name: "Tata Consultancy Services",
-    currentPrice: 3814.20,
-    targetPrice: 3740.00,
-    signal: "SELL",
-    confidence: 68.0,
-    expectedReturn: "-1.95%",
-    timeHorizon: "Next 5 Trading Days",
-    primaryModel: "LightGBM + Transformer",
-    modelAccuracy: "74.8%",
-    support: 3720.00,
-    resistance: 3850.00,
-    sentimentScore: "-0.32 (Mild Bearish)",
-    signalsBreakdown: [
-      { metric: "RSI Momentum (14D)", value: "68.2", state: "Approaching Overbought", isBull: false },
-      { metric: "EMA 20 / 50 Crossover", value: "Neutral", state: "Consolidation", isBull: false },
-      { metric: "Order Book Imbalance", value: "-8.4% Ask Heavy", state: "Institutional Distribution", isBull: false },
-      { metric: "IV Skew (Derivatives)", value: "Put Buying Heavy", state: "Downside Hedging", isBull: false },
-      { metric: "MACD Histogram", value: "-1.40", state: "Contracting Trend", isBull: false },
-    ],
-    features: [
-      { name: "Sector Rotation Factor", weight: 38 },
-      { name: "Foreign Institutional Flow", weight: 28 },
-      { name: "Earnings Surprise Delta", weight: 19 },
-      { name: "Price-to-Earnings Ratio", weight: 15 }
-    ]
-  },
-  "INFY.NS": {
-    name: "Infosys Limited",
-    currentPrice: 1623.40,
-    targetPrice: 1675.00,
-    signal: "BUY",
-    confidence: 81.2,
-    expectedReturn: "+3.18%",
-    timeHorizon: "Next 5 Trading Days",
-    primaryModel: "XGBoost Quant v2.4",
-    modelAccuracy: "81.0%",
-    support: 1590.00,
-    resistance: 1640.00,
-    sentimentScore: "0.64 (Bullish)",
-    signalsBreakdown: [
-      { metric: "RSI Momentum (14D)", value: "52.8", state: "Rebounding from 45", isBull: true },
-      { metric: "EMA 20 / 50 Crossover", value: "Crossed Up", state: "Breakout Confirmation", isBull: true },
-      { metric: "Order Book Imbalance", value: "+11.0% Bid Heavy", state: "Strong Buyer Support", isBull: true },
-      { metric: "IV Skew (Derivatives)", value: "Balanced", state: "Low Downside Fear", isBull: true },
-      { metric: "MACD Histogram", value: "+2.85", state: "Bullish Acceleration", isBull: true },
-    ],
-    features: [
-      { name: "ADR Arbitrage Spread", weight: 36 },
-      { name: "Volume Weighted Momentum", weight: 30 },
-      { name: "NASDAQ Beta Correl", weight: 20 },
-      { name: "Options Open Interest Drift", weight: 14 }
-    ]
-  }
-};
+import { getPrediction } from "../../services/predictionService";
 
-export default function Prediction() {
-  const [selectedTicker, setSelectedTicker] = useState("RELIANCE.NS");
-  const [selectedHorizon, setSelectedHorizon] = useState("5D");
-  const currentPred = PREDICTION_DATA[selectedTicker] || PREDICTION_DATA["RELIANCE.NS"];
-  const isBullish = currentPred.signal.includes("BUY");
+
+const STOCKS = [
+  {
+    symbol: "TCS.NS",
+    name: "TCS",
+  },
+  {
+    symbol: "RELIANCE.NS",
+    name: "Reliance",
+  },
+  {
+    symbol: "INFY.NS",
+    name: "Infosys",
+  },
+  {
+    symbol: "HDFCBANK.NS",
+    name: "HDFC Bank",
+  },
+  {
+    symbol: "ICICIBANK.NS",
+    name: "ICICI Bank",
+  },
+];
+
+
+const TIMEFRAMES = [
+  {
+    value: "1d",
+    label: "1 Day",
+  },
+  {
+    value: "1wk",
+    label: "1 Week",
+  },
+];
+
+
+const Prediction = () => {
+  const [symbol, setSymbol] =
+    useState("TCS.NS");
+
+  const [timeframe, setTimeframe] =
+    useState("1d");
+
+  const [prediction, setPrediction] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [lastUpdated, setLastUpdated] =
+    useState(null);
+
+
+  // ==========================================================
+  // FETCH PREDICTION
+  // ==========================================================
+
+  const fetchPrediction = useCallback(
+    async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const data = await getPrediction(
+          symbol,
+          timeframe
+        );
+
+        setPrediction(data);
+        setLastUpdated(new Date());
+      } catch (err) {
+        console.error(
+          "Prediction error:",
+          err
+        );
+
+        setPrediction(null);
+
+        setError(
+          err.message ||
+            "Failed to load prediction."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [symbol, timeframe]
+  );
+
+
+  // ==========================================================
+  // INITIAL LOAD
+  // ==========================================================
+
+  useEffect(() => {
+    fetchPrediction();
+  }, [fetchPrediction]);
+
+
+  // ==========================================================
+  // HELPERS
+  // ==========================================================
+
+  const formatPrice = (price) => {
+    if (
+      price === null ||
+      price === undefined ||
+      Number.isNaN(Number(price))
+    ) {
+      return "--";
+    }
+
+    return `₹${Number(price).toLocaleString(
+      "en-IN",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    )}`;
+  };
+
+
+  const formatPercent = (value) => {
+    if (
+      value === null ||
+      value === undefined ||
+      Number.isNaN(Number(value))
+    ) {
+      return "--";
+    }
+
+    const number = Number(value);
+
+    return `${number >= 0 ? "+" : ""}${number.toFixed(
+      2
+    )}%`;
+  };
+
+
+  const formatTime = (date) => {
+    if (!date) {
+      return "--";
+    }
+
+    return date.toLocaleTimeString(
+      "en-IN",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }
+    );
+  };
+
+
+  const getPredictionColor = () => {
+    if (!prediction) {
+      return "";
+    }
+
+    switch (prediction.prediction) {
+      case "UP":
+        return "text-emerald-600";
+
+      case "DOWN":
+        return "text-red-600";
+
+      case "HOLD":
+        return "text-amber-600";
+
+      default:
+        return "text-gray-600";
+    }
+  };
+
+
+  const getPredictionBackground = () => {
+    if (!prediction) {
+      return "bg-gray-50";
+    }
+
+    switch (prediction.prediction) {
+      case "UP":
+        return "bg-emerald-50";
+
+      case "DOWN":
+        return "bg-red-50";
+
+      case "HOLD":
+        return "bg-amber-50";
+
+      default:
+        return "bg-gray-50";
+    }
+  };
+
+
+  const getPredictionIcon = () => {
+    if (!prediction) {
+      return (
+        <Minus
+          className="w-10 h-10"
+        />
+      );
+    }
+
+    switch (prediction.prediction) {
+      case "UP":
+        return (
+          <TrendingUp
+            className="w-10 h-10"
+          />
+        );
+
+      case "DOWN":
+        return (
+          <TrendingDown
+            className="w-10 h-10"
+          />
+        );
+
+      case "HOLD":
+        return (
+          <Minus
+            className="w-10 h-10"
+          />
+        );
+
+      default:
+        return (
+          <Minus
+            className="w-10 h-10"
+          />
+        );
+    }
+  };
+
+
+  const getProbability = (direction) => {
+    if (
+      !prediction?.probabilities
+    ) {
+      return 0;
+    }
+
+    return (
+      Number(
+        prediction.probabilities[
+          direction
+        ]
+      ) * 100
+    );
+  };
+
+
+  const selectedStock = STOCKS.find(
+    (stock) =>
+      stock.symbol === symbol
+  );
+
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
 
   return (
-    <div className="mx-auto w-full max-w-[1580px] space-y-6 pb-12">
-      {/* 1. Page Header */}
-      <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg shadow-black/20">
-        <div>
-          <div className="flex items-center gap-2 mb-1 text-blue-400 font-mono text-xs font-semibold uppercase tracking-wider">
-            <Brain size={15} /> Neural Market Predictor
-          </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            AI Quant Price Forecasting
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Predictive machine learning models trained on order book liquidity, historical OHLCV, and volatility skews.
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6 lg:p-8">
 
-        {/* Ticker Selector Buttons */}
-        <div className="flex items-center gap-2 bg-[#070b16] p-1.5 rounded-xl border border-[#162444]">
-          {Object.keys(PREDICTION_DATA).map((sym) => (
-            <button
-              key={sym}
-              onClick={() => setSelectedTicker(sym)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
-                selectedTicker === sym
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              {sym.replace(".NS", "")}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
 
-      {/* 2. Top Forecast Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Signal Direction */}
-        <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-5 flex flex-col justify-between">
-          <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-slate-400">
-            Model Signal
-          </span>
-          <div className="mt-3 flex items-center justify-between">
-            <span
-              className={`text-xl font-bold font-mono px-3 py-1 rounded-lg border ${
-                isBullish
-                  ? "bg-emerald-950/60 text-emerald-400 border-emerald-800/60"
-                  : "bg-rose-950/60 text-rose-400 border-rose-800/60"
-              }`}
-            >
-              {currentPred.signal}
-            </span>
-            {isBullish ? (
-              <TrendingUp className="text-emerald-400" size={28} />
-            ) : (
-              <TrendingDown className="text-rose-400" size={28} />
-            )}
-          </div>
-          <div className="mt-3 text-[11px] text-slate-400 font-mono">
-            Target Horizon: {currentPred.timeHorizon}
-          </div>
-        </div>
+      <div className="max-w-7xl mx-auto">
 
-        {/* Confidence Score */}
-        <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-slate-400">
-              Confidence Score
-            </span>
-            <Gauge size={16} className="text-amber-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-mono text-white">
-              {currentPred.confidence}%
-            </span>
-            <span className="text-xs text-amber-400 font-mono font-semibold">High Conviction</span>
-          </div>
-          {/* Progress Meter Bar */}
-          <div className="mt-3 w-full bg-[#070b16] h-2 rounded-full overflow-hidden border border-[#162444]">
-            <div
-              className="bg-amber-400 h-full rounded-full transition-all duration-500"
-              style={{ width: `${currentPred.confidence}%` }}
-            />
-          </div>
-        </div>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
 
-        {/* Projected Price Target */}
-        <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-slate-400">
-              5D Price Target
-            </span>
-            <Target size={16} className="text-blue-400" />
-          </div>
-          <div className="mt-2">
-            <div className="text-3xl font-bold font-mono text-white">
-              ₹{currentPred.targetPrice.toFixed(2)}
-            </div>
-            <div
-              className={`mt-1 text-xs font-mono font-semibold ${
-                isBullish ? "text-emerald-400" : "text-rose-400"
-              }`}
-            >
-              Exp. Delta: {currentPred.expectedReturn}
-            </div>
-          </div>
-          <div className="mt-2 text-[11px] text-slate-400 font-mono">
-            LTP: ₹{currentPred.currentPrice.toFixed(2)}
-          </div>
-        </div>
-
-        {/* Support & Resistance Bands */}
-        <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-5 flex flex-col justify-between">
-          <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-slate-400">
-            Key Pivot Bands
-          </span>
-          <div className="mt-2 space-y-1.5 font-mono text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Resistance (R1):</span>
-              <span className="text-rose-400 font-bold">₹{currentPred.resistance.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Support (S1):</span>
-              <span className="text-emerald-400 font-bold">₹{currentPred.support.toFixed(2)}</span>
-            </div>
-          </div>
-          <div className="mt-2 pt-2 border-t border-[#162444] text-[10px] text-slate-400 font-mono flex justify-between">
-            <span>Sentiment Index:</span>
-            <span className="text-slate-200">{currentPred.sentimentScore}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Detailed Model Interpretation & Indicator Signals */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Indicator & Signal Breakdown */}
-        <div className="lg:col-span-2 bg-[#0b1222] border border-[#162444] rounded-2xl p-6 shadow-xl space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-white tracking-wide">
-                Indicator Divergence Matrix
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Multi-factor inputs processed by the inference engine for {selectedTicker}.
-              </p>
-            </div>
-            <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/20">
-              {currentPred.primaryModel}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {currentPred.signalsBreakdown.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-3.5 rounded-xl bg-[#070b16] border border-[#162444] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-              >
-                <div>
-                  <div className="text-xs font-bold text-white font-mono">{item.metric}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">{item.state}</div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono font-semibold text-slate-300">
-                    {item.value}
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                      item.isBull
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                    }`}
-                  >
-                    {item.isBull ? "BULL" : "BEAR"}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right 1 Col: Model Feature Weights & Execution Action */}
-        <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-6">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Sliders size={16} className="text-blue-400" />
-              <h3 className="text-base font-bold text-white tracking-wide">
-                Feature Importance
-              </h3>
+
+            <div className="flex items-center gap-3">
+
+              <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+
+                <Brain
+                  className="w-6 h-6 text-white"
+                />
+
+              </div>
+
+              <div>
+
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
+                  AI Market Prediction
+                </h1>
+
+                <p className="text-sm text-slate-500 mt-1">
+                  XGBoost-powered market direction analysis
+                </p>
+
+              </div>
+
             </div>
-            <p className="text-xs text-slate-400 mb-4">
-              Weights contributing to this forecast.
+
+          </div>
+
+
+          {/* CONTROLS */}
+
+          <div className="flex flex-col sm:flex-row gap-3">
+
+            {/* SYMBOL */}
+
+            <div className="relative">
+
+              <select
+                value={symbol}
+                onChange={(event) =>
+                  setSymbol(
+                    event.target.value
+                  )
+                }
+                className="appearance-none w-full sm:w-52 bg-white border border-slate-200 rounded-xl px-4 py-3 pr-10 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+
+                {STOCKS.map(
+                  (stock) => (
+                    <option
+                      key={stock.symbol}
+                      value={stock.symbol}
+                    >
+                      {stock.name} (
+                      {stock.symbol})
+                    </option>
+                  )
+                )}
+
+              </select>
+
+              <ChevronDown
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+              />
+
+            </div>
+
+
+            {/* TIMEFRAME */}
+
+            <div className="relative">
+
+              <select
+                value={timeframe}
+                onChange={(event) =>
+                  setTimeframe(
+                    event.target.value
+                  )
+                }
+                className="appearance-none w-full sm:w-36 bg-white border border-slate-200 rounded-xl px-4 py-3 pr-10 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+
+                {TIMEFRAMES.map(
+                  (item) => (
+                    <option
+                      key={item.value}
+                      value={item.value}
+                    >
+                      {item.label}
+                    </option>
+                  )
+                )}
+
+              </select>
+
+              <ChevronDown
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+              />
+
+            </div>
+
+
+            {/* REFRESH */}
+
+            <button
+              onClick={
+                fetchPrediction
+              }
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
+            >
+
+              {loading ? (
+                <Loader2
+                  className="w-4 h-4 animate-spin"
+                />
+              ) : (
+                <RefreshCw
+                  className="w-4 h-4"
+                />
+              )}
+
+              Refresh
+
+            </button>
+
+          </div>
+
+        </div>
+
+
+        {/* ====================================================
+            ERROR
+        ==================================================== */}
+
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+
+            <AlertCircle
+              className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0"
+            />
+
+            <div>
+
+              <p className="font-semibold text-red-800">
+                Prediction Error
+              </p>
+
+              <p className="text-sm text-red-700 mt-1">
+                {error}
+              </p>
+
+            </div>
+
+          </div>
+        )}
+
+
+        {/* ====================================================
+            LOADING
+        ==================================================== */}
+
+        {loading && !prediction ? (
+
+          <div className="bg-white rounded-3xl border border-slate-200 p-16 flex flex-col items-center justify-center">
+
+            <Loader2
+              className="w-10 h-10 text-indigo-600 animate-spin"
+            />
+
+            <p className="mt-4 text-slate-600 font-medium">
+              Running AI prediction...
             </p>
 
-            <div className="space-y-3 font-mono text-xs">
-              {currentPred.features.map((feat) => (
-                <div key={feat.name} className="space-y-1">
-                  <div className="flex justify-between text-slate-300 text-[11px]">
-                    <span>{feat.name}</span>
-                    <span className="text-blue-400 font-bold">{feat.weight}%</span>
-                  </div>
-                  <div className="w-full bg-[#070b16] h-1.5 rounded-full overflow-hidden border border-[#162444]">
+            <p className="mt-1 text-sm text-slate-400">
+              Fetching latest market data
+            </p>
+
+          </div>
+
+        ) : prediction ? (
+
+          <>
+
+            {/* =================================================
+                TOP SUMMARY
+            ================================================= */}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+
+              {/* MAIN PREDICTION */}
+
+              <div
+                className={`lg:col-span-2 rounded-3xl border border-slate-200 p-6 md:p-8 ${getPredictionBackground()}`}
+              >
+
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+
+                  <div>
+
+                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+
+                      <Activity
+                        className="w-4 h-4"
+                      />
+
+                      AI Direction Prediction
+
+                    </div>
+
                     <div
-                      className="bg-blue-500 h-full rounded-full"
-                      style={{ width: `${feat.weight}%` }}
-                    />
+                      className={`flex items-center gap-4 ${getPredictionColor()}`}
+                    >
+
+                      {getPredictionIcon()}
+
+                      <div>
+
+                        <div className="text-4xl md:text-5xl font-bold">
+                          {prediction.prediction}
+                        </div>
+
+                        <div className="text-sm text-slate-500 mt-1">
+                          Model probability
+                        </div>
+
+                      </div>
+
+                    </div>
+
                   </div>
+
+
+                  <div className="text-left md:text-right">
+
+                    <div className="text-4xl font-bold text-slate-900">
+                      {
+                        prediction.probability_percent
+                      }%
+                    </div>
+
+                    <div className="text-sm text-slate-500 mt-1">
+                      Predicted class probability
+                    </div>
+
+                  </div>
+
                 </div>
-              ))}
+
+              </div>
+
+
+              {/* PRICE */}
+
+              <div className="bg-white rounded-3xl border border-slate-200 p-6">
+
+                <div className="flex items-center justify-between">
+
+                  <div>
+
+                    <p className="text-sm text-slate-500">
+                      Current Price
+                    </p>
+
+                    <p className="text-3xl font-bold text-slate-900 mt-2">
+                      {formatPrice(
+                        prediction.current_price
+                      )}
+                    </p>
+
+                  </div>
+
+                  <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center">
+
+                    <Activity
+                      className="w-5 h-5 text-indigo-600"
+                    />
+
+                  </div>
+
+                </div>
+
+
+                <div className="mt-5 pt-5 border-t border-slate-100">
+
+                  <p className="text-sm text-slate-500">
+                    Today's Change
+                  </p>
+
+                  <p
+                    className={`text-xl font-bold mt-1 ${
+                      Number(
+                        prediction.daily_change_percent
+                      ) >= 0
+                        ? "text-emerald-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {formatPercent(
+                      prediction.daily_change_percent
+                    )}
+                  </p>
+
+                </div>
+
+              </div>
+
             </div>
+
+
+            {/* =================================================
+                PROBABILITIES
+            ================================================= */}
+
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 mb-6">
+
+              <div className="flex items-center justify-between mb-6">
+
+                <div>
+
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Prediction Probabilities
+                  </h2>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Model output across all three classes
+                  </p>
+
+                </div>
+
+                <div className="px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600">
+                  XGBoost
+                </div>
+
+              </div>
+
+
+              <div className="space-y-5">
+
+
+                {/* DOWN */}
+
+                <div>
+
+                  <div className="flex justify-between items-center mb-2">
+
+                    <div className="flex items-center gap-2">
+
+                      <TrendingDown
+                        className="w-4 h-4 text-red-500"
+                      />
+
+                      <span className="text-sm font-semibold text-slate-700">
+                        DOWN
+                      </span>
+
+                    </div>
+
+                    <span className="text-sm font-bold text-slate-900">
+                      {getProbability(
+                        "DOWN"
+                      ).toFixed(2)}
+                      %
+                    </span>
+
+                  </div>
+
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+
+                    <div
+                      className="h-full bg-red-500 rounded-full transition-all duration-700"
+                      style={{
+                        width: `${getProbability(
+                          "DOWN"
+                        )}%`,
+                      }}
+                    />
+
+                  </div>
+
+                </div>
+
+
+                {/* HOLD */}
+
+                <div>
+
+                  <div className="flex justify-between items-center mb-2">
+
+                    <div className="flex items-center gap-2">
+
+                      <Minus
+                        className="w-4 h-4 text-amber-500"
+                      />
+
+                      <span className="text-sm font-semibold text-slate-700">
+                        HOLD
+                      </span>
+
+                    </div>
+
+                    <span className="text-sm font-bold text-slate-900">
+                      {getProbability(
+                        "HOLD"
+                      ).toFixed(2)}
+                      %
+                    </span>
+
+                  </div>
+
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-all duration-700"
+                      style={{
+                        width: `${getProbability(
+                          "HOLD"
+                        )}%`,
+                      }}
+                    />
+
+                  </div>
+
+                </div>
+
+
+                {/* UP */}
+
+                <div>
+
+                  <div className="flex justify-between items-center mb-2">
+
+                    <div className="flex items-center gap-2">
+
+                      <TrendingUp
+                        className="w-4 h-4 text-emerald-500"
+                      />
+
+                      <span className="text-sm font-semibold text-slate-700">
+                        UP
+                      </span>
+
+                    </div>
+
+                    <span className="text-sm font-bold text-slate-900">
+                      {getProbability(
+                        "UP"
+                      ).toFixed(2)}
+                      %
+                    </span>
+
+                  </div>
+
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+                      style={{
+                        width: `${getProbability(
+                          "UP"
+                        )}%`,
+                        }}
+                    />
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            {/* =================================================
+                MODEL INFORMATION
+            ================================================= */}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+
+
+              {/* SYMBOL */}
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+
+                <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
+                  Asset
+                </p>
+
+                <p className="text-lg font-bold text-slate-900 mt-2">
+                  {selectedStock?.name ||
+                    prediction.symbol}
+                </p>
+
+                <p className="text-sm text-slate-500 mt-1">
+                  {prediction.symbol}
+                </p>
+
+              </div>
+
+
+              {/* TIMEFRAME */}
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+
+                <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
+                  Timeframe
+                </p>
+
+                <p className="text-lg font-bold text-slate-900 mt-2">
+                  {prediction.timeframe}
+                </p>
+
+                <p className="text-sm text-slate-500 mt-1">
+                  Prediction interval
+                </p>
+
+              </div>
+
+
+              {/* MODEL */}
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+
+                <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
+                  Model
+                </p>
+
+                <p className="text-lg font-bold text-slate-900 mt-2">
+                  {
+                    prediction.model
+                      ?.type
+                  }
+                </p>
+
+                <p className="text-sm text-slate-500 mt-1">
+                  3-class classifier
+                </p>
+
+              </div>
+
+            </div>
+
+
+            {/* =================================================
+                FOOTER INFORMATION
+            ================================================= */}
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+
+                  <Clock
+                    className="w-4 h-4"
+                  />
+
+                  <span>
+                    Market data:
+                    {" "}
+                    {prediction.prediction_time ||
+                      "--"}
+                  </span>
+
+                </div>
+
+
+                <div className="text-sm text-slate-500">
+
+                  Last API refresh:
+                  {" "}
+                  <span className="font-medium text-slate-700">
+                    {formatTime(
+                      lastUpdated
+                    )}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            {/* =================================================
+                DISCLAIMER
+            ================================================= */}
+
+            <div className="mt-6 p-4 rounded-2xl bg-slate-100 border border-slate-200">
+
+              <p className="text-xs leading-5 text-slate-500">
+
+                <strong className="text-slate-700">
+                  Model information:
+                </strong>{" "}
+                This prediction is generated by an
+                experimental XGBoost machine-learning
+                model using historical market data and
+                technical features. The displayed class
+                probability is the model output and is
+                not a calibrated guarantee of future
+                price movement.
+
+              </p>
+
+            </div>
+
+          </>
+
+        ) : (
+
+          <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
+
+            <Brain
+              className="w-12 h-12 mx-auto text-slate-300"
+            />
+
+            <h2 className="mt-4 text-lg font-bold text-slate-700">
+              No prediction available
+            </h2>
+
+            <p className="text-sm text-slate-500 mt-2">
+              Select an asset and refresh the prediction.
+            </p>
+
           </div>
 
-          {/* Direct Execution Card */}
-          <div className="pt-4 border-t border-[#162444] space-y-3">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-slate-400">Model Backtest Acc:</span>
-              <span className="text-emerald-400 font-bold">{currentPred.modelAccuracy}</span>
-            </div>
+        )}
 
-            <Link
-              to="/trading"
-              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold font-mono flex items-center justify-center gap-2 transition shadow-lg shadow-blue-600/20"
-            >
-              Route Prediction Order <ArrowUpRight size={15} />
-            </Link>
-          </div>
-        </div>
       </div>
+
     </div>
   );
-}
+};
+
+
+export default Prediction;

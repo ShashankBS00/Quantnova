@@ -10,6 +10,7 @@ from app.api.paper_trading import (
 from app.database.database import Base, engine
 from app.database import models
 from app.routers.auth import router as auth_router
+from app.api.prediction import router as prediction_router
 
 app = FastAPI(
     title="QuantNova API",
@@ -43,6 +44,7 @@ app.include_router(paper_trading_router)
 app.include_router(
     auth_router
 )
+app.include_router(prediction_router)
 
 
 @app.get("/")
