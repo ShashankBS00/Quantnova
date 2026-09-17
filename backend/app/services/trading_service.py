@@ -455,6 +455,10 @@ def get_trading_account(
     # --------------------------------------
 
     return {
+        "initial_cash": round(
+            float(account.initial_cash),
+            2,
+        ),
         "cash": round(
             float(account.cash),
             2,
