@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { RefreshCw, WalletCards } from "lucide-react";
 
 import PortfolioSummary from "./PortfolioSummary";
 import HoldingsTable from "./HoldingsTable";
@@ -16,95 +17,76 @@ export default function Portfolio() {
     setLoading(true);
 
     try {
-      // Get holdings from paper trading account
-      const portfolioHoldings =
-        await getPortfolioHoldings();
-
+      const portfolioHoldings = await getPortfolioHoldings();
       setHoldings(portfolioHoldings);
 
-      // Get current market prices
       const results = await Promise.all(
-        portfolioHoldings.map((stock) =>
-          getCurrentMarketData(stock.symbol)
-        )
+        portfolioHoldings.map((stock) => getCurrentMarketData(stock.symbol))
       );
 
       const dataMap = {};
-
       results.forEach((item) => {
         dataMap[item.symbol] = item;
       });
-
       setMarketData(dataMap);
     } catch (error) {
-      console.error(
-        "Failed to refresh portfolio:",
-        error
-      );
+      console.error("Failed to refresh portfolio:", error);
     } finally {
       setLoading(false);
     }
   }
 
-  // Load portfolio when page opens
-useEffect(() => {
-  refreshPortfolio();
-
-  const interval = setInterval(() => {
+  useEffect(() => {
     refreshPortfolio();
-  }, 30000);
-
-  return () => {
-    clearInterval(interval);
-  };
-}, []);
+    const interval = setInterval(refreshPortfolio, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="space-y-8">
-
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+    <div className="space-y-8 pb-10 animate-fade-up">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">
-            Portfolio
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-bold tracking-[0.16em]"
+            style={{
+              background: "rgba(79, 70, 229, 0.08)",
+              border: "1px solid rgba(79, 70, 229, 0.16)",
+              color: "var(--qn-indigo)",
+              fontFamily: "'JetBrains Mono', monospace",
+            }}
+          >
+            <WalletCards size={12} strokeWidth={2.2} />
+            PAPER PORTFOLIO
+          </div>
+          <h1
+            className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl"
+            style={{
+              color: "var(--qn-text-1)",
+              fontFamily: "'Space Grotesk', sans-serif",
+            }}
+          >
+            Your portfolio, at a glance.
           </h1>
-
-          <p className="text-slate-400 mt-2">
-            Track your paper-trading investments
+          <p className="mt-2 text-sm" style={{ color: "var(--qn-text-2)" }}>
+            Monitor positions, performance, and allocation using live market data.
           </p>
         </div>
 
-        {/* Refresh Button */}
         <button
+          type="button"
           onClick={refreshPortfolio}
           disabled={loading}
-          className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50 transition"
+          className="qn-btn-ghost inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-55"
+          style={{ fontFamily: "'Inter', sans-serif" }}
         >
-          {loading ? "Refreshing..." : "↻ Refresh"}
+          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+          {loading ? "Refreshing" : "Refresh data"}
         </button>
-      </div>
+      </header>
 
-      {/* Summary */}
-      <PortfolioSummary
-        holdings={holdings}
-        marketData={marketData}
-        loading={loading}
-      />
-
-      {/* Holdings */}
-      <HoldingsTable
-        holdings={holdings}
-        marketData={marketData}
-        loading={loading}
-      />
-
-      {/* Allocation */}
-      <PortfolioAllocation
-        holdings={holdings}
-        marketData={marketData}
-        loading={loading}
-      />
-
+      <PortfolioSummary holdings={holdings} marketData={marketData} loading={loading} />
+      <HoldingsTable holdings={holdings} marketData={marketData} loading={loading} />
+      <PortfolioAllocation holdings={holdings} marketData={marketData} loading={loading} />
     </div>
   );
 }

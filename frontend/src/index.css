@@ -53,8 +53,8 @@
 /* ─── QuantNova Light Design Tokens ───────────────────────── */
 :root {
     /* Shadcn bridge — light mode */
-    --background: oklch(0.99 0.003 250);
-    --foreground: oklch(0.18 0.025 255);
+    --background: oklch(59.574% 0.13305 251.338);
+    --foreground: oklch(48.619% 0.08776 254.535);
     --card: oklch(1.00 0.002 250);
     --card-foreground: oklch(0.18 0.025 255);
     --popover: oklch(1.00 0.002 250);
