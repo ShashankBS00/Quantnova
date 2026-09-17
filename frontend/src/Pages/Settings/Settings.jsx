@@ -1,402 +1,79 @@
-import React, { useState } from "react";
-import { 
-  Settings as SettingsIcon, 
-  User, 
-  ShieldCheck, 
-  Cpu, 
-  Key, 
-  Bell, 
-  Save, 
-  RotateCcw, 
-  CheckCircle2, 
-  AlertTriangle 
+import { useState } from "react";
+import {
+  Bell,
+  CheckCircle2,
+  ChevronRight,
+  Cpu,
+  Key,
+  RefreshCcw,
+  Save,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  User,
 } from "lucide-react";
+
+const labelStyle = { color: "var(--qn-text-3)", fontFamily: "'JetBrains Mono', monospace" };
+
+function Field({ label, hint, children }) {
+  return <div><label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.12em]" style={labelStyle}>{label}</label>{children}{hint && <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: "var(--qn-text-3)" }}>{hint}</p>}</div>;
+}
+
+function ToggleRow({ icon: Icon, title, description, checked, onChange, children }) {
+  return <div className="flex items-center justify-between gap-5 rounded-xl p-4" style={{ background: "var(--qn-surface-2)", border: "1px solid var(--qn-border)" }}><div className="flex items-start gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ background: "rgba(79, 70, 229, 0.09)", color: "var(--qn-indigo)" }}><Icon size={16} /></span><div><h4 className="text-sm font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>{title}</h4><p className="mt-0.5 text-xs" style={{ color: "var(--qn-text-3)" }}>{description}</p></div></div>{children || <button type="button" onClick={() => onChange(!checked)} className="relative h-6 w-11 shrink-0 rounded-full transition-colors" style={{ background: checked ? "var(--qn-indigo)" : "var(--qn-surface-3)", border: checked ? "1px solid var(--qn-indigo)" : "1px solid var(--qn-border)" }} aria-pressed={checked}><span className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform" style={{ left: "3px", transform: checked ? "translateX(19px)" : "translateX(0)" }} /></button>}</div>;
+}
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const [saveSuccess, setSaveSuccess] = useState(false);
-
-  // 1. Profile State
   const [profile, setProfile] = useState(() => {
     const savedUser = JSON.parse(localStorage.getItem("user") || "null");
-    return {
-      username: savedUser?.username || "Shashank",
-      email: savedUser?.email || "ram@gmail.com",
-      role: "Quantitative Trader / MCA Student",
-    };
+    return { username: savedUser?.username || "Shashank", email: savedUser?.email || "ram@gmail.com", role: "Quantitative Trader / MCA Student" };
   });
+  const [riskSettings, setRiskSettings] = useState(() => JSON.parse(localStorage.getItem("quantnova_risk_settings") || "null") || ({ defaultSlippage: 0.05, maxPositionSize: 25000, maxDrawdownLimit: 5, defaultStopLoss: 1.5, autoTrailingStop: true, executionMode: "paper" }));
+  const [apiKeys, setApiKeys] = useState(() => JSON.parse(localStorage.getItem("quantnova_api_keys") || "null") || ({ broker: "Zerodha Kite", apiKey: "••••••••••••••••", apiSecret: "••••••••••••••••", fastApiUrl: "http://127.0.0.1:8000" }));
+  const [preferences, setPreferences] = useState({ audioAlerts: true, pollingInterval: "10s", compactTables: false, emailDailyReport: true });
 
-  // 2. Risk & Algo Trading Controls State
-  const [riskSettings, setRiskSettings] = useState(() => {
-    const saved = localStorage.getItem("quantnova_risk_settings");
-    return saved
-      ? JSON.parse(saved)
-      : {
-          defaultSlippage: 0.05, // 5 bps
-          maxPositionSize: 25000, // ₹25,000 per order
-          maxDrawdownLimit: 5.0, // 5% max drawdown circuit breaker
-          defaultStopLoss: 1.5, // 1.5%
-          autoTrailingStop: true,
-          executionMode: "paper", // "paper" or "live"
-        };
-  });
+  const tabs = [{ id: "profile", label: "Profile & identity", icon: User }, { id: "risk", label: "Risk & execution", icon: ShieldCheck }, { id: "api", label: "Broker connections", icon: Key }, { id: "system", label: "System preferences", icon: Cpu }];
+  const inputClass = "qn-input w-full rounded-xl px-3.5 py-3 text-sm";
 
-  // 3. Broker & Data API Keys State
-  const [apiKeys, setApiKeys] = useState(() => {
-    const saved = localStorage.getItem("quantnova_api_keys");
-    return saved
-      ? JSON.parse(saved)
-      : {
-          broker: "Zerodha Kite",
-          apiKey: "••••••••••••••••",
-          apiSecret: "••••••••••••••••",
-          fastApiUrl: "http://127.0.0.1:8000",
-        };
-  });
-
-  // 4. Notifications & UI Preferences
-  const [preferences, setPreferences] = useState({
-    audioAlerts: true,
-    pollingInterval: "10s",
-    compactTables: false,
-    emailDailyReport: true,
-  });
-
-  // Handle saving configurations
-  const handleSaveAll = (e) => {
-    e.preventDefault();
-    localStorage.setItem("user", JSON.stringify({ ...profile }));
+  function handleSaveAll() {
+    localStorage.setItem("user", JSON.stringify(profile));
     localStorage.setItem("quantnova_risk_settings", JSON.stringify(riskSettings));
     localStorage.setItem("quantnova_api_keys", JSON.stringify(apiKeys));
-
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
-  };
+  }
 
-  // Reset Paper Trading Simulation
-  const handleResetPaperData = () => {
+  function handleResetPaperData() {
     if (window.confirm("Are you sure you want to reset all virtual paper trading trades and balance to ₹1,00,000?")) {
       localStorage.removeItem("quantnova_paper_portfolio");
       localStorage.removeItem("quantnova_orders");
       alert("Paper trading account reset successfully.");
     }
-  };
-
-  const tabs = [
-    { id: "profile", label: "Profile & Identity", icon: User },
-    { id: "risk", label: "Risk & Execution Rules", icon: ShieldCheck },
-    { id: "api", label: "API & Broker Connectors", icon: Key },
-    { id: "system", label: "System Preferences", icon: Cpu },
-  ];
+  }
 
   return (
-    <div className="mx-auto w-full max-w-[1580px] space-y-6 pb-12">
-      {/* 1. Header Banner */}
-      <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg shadow-black/20">
-        <div>
-          <div className="flex items-center gap-2 mb-1 text-blue-400 font-mono text-xs font-semibold uppercase tracking-wider">
-            <SettingsIcon size={14} /> System Configuration
-          </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            Platform Settings
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Configure risk parameters, brokerage APIs, algorithm constraints, and user identity.
-          </p>
-        </div>
+    <div className="mx-auto w-full max-w-[1580px] space-y-8 pb-12 animate-fade-up">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div><div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-bold tracking-[0.16em]" style={{ background: "rgba(79, 70, 229, 0.08)", border: "1px solid rgba(79, 70, 229, 0.16)", color: "var(--qn-indigo)", fontFamily: "'JetBrains Mono', monospace" }}><SettingsIcon size={12} /> PLATFORM SETTINGS</div><h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>Make the platform yours.</h1><p className="mt-2 text-sm" style={{ color: "var(--qn-text-2)" }}>Manage your profile, trading guardrails, and platform preferences.</p></div>
+        <div className="flex items-center gap-3">{saveSuccess && <span className="hidden items-center gap-1.5 text-xs font-semibold sm:flex animate-fade-up" style={{ color: "var(--qn-bull)" }}><CheckCircle2 size={16} /> Saved</span>}<button type="button" onClick={handleSaveAll} className="qn-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5"><Save size={15} /> Save changes</button></div>
+      </header>
 
-        <div className="flex items-center gap-3">
-          {saveSuccess && (
-            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium font-mono animate-fade-in">
-              <CheckCircle2 size={15} /> Saved successfully
-            </span>
-          )}
-          <button
-            onClick={handleSaveAll}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/20"
-          >
-            <Save size={15} /> Save Changes
-          </button>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        <nav className="qn-card h-fit p-3 lg:sticky lg:top-6">
+          <p className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.14em]" style={labelStyle}>Settings</p>
+          <div className="space-y-1">{tabs.map((tab) => { const Icon = tab.icon; const active = activeTab === tab.id; return <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all" style={{ background: active ? "rgba(79, 70, 229, 0.09)" : "transparent", color: active ? "var(--qn-indigo)" : "var(--qn-text-2)", border: active ? "1px solid rgba(79, 70, 229, 0.16)" : "1px solid transparent" }}><Icon size={16} /><span className="flex-1">{tab.label}</span>{active && <ChevronRight size={14} />}</button>; })}</div>
+        </nav>
 
-      {/* 2. Main Settings Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left: Tab Navigation */}
-        <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-3 space-y-1 h-fit">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-[#142352] text-blue-400 border border-[#2b489a] shadow-sm"
-                    : "text-slate-400 hover:text-white hover:bg-[#0c1328] border border-transparent"
-                }`}
-              >
-                <Icon size={16} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <main className="min-w-0 lg:col-span-3">
+          {activeTab === "profile" && <section className="qn-card p-5 sm:p-6"><div className="mb-6"><h2 className="text-xl font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>Profile & identity</h2><p className="mt-1 text-sm" style={{ color: "var(--qn-text-3)" }}>Manage your personal identity and workspace details.</p></div><div className="grid grid-cols-1 gap-5 md:grid-cols-2"><Field label="Username"><input value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} className={inputClass} /></Field><Field label="Email address"><input type="email" value={profile.email} onChange={(event) => setProfile({ ...profile, email: event.target.value })} className={inputClass} /></Field><div className="md:col-span-2"><Field label="User role & workspace type" hint="Your access level is managed by your workspace administrator."><input value={profile.role} disabled className={`${inputClass} cursor-not-allowed opacity-70`} /></Field></div></div></section>}
 
-        {/* Right: Content Cards */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* TAB 1: Profile & Identity */}
-          {activeTab === "profile" && (
-            <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-6 shadow-xl space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-wide">User Profile</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Manage your user identity and authorization credentials.</p>
-              </div>
+          {activeTab === "risk" && <section className="qn-card p-5 sm:p-6"><div className="mb-6"><h2 className="text-xl font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>Risk & execution</h2><p className="mt-1 text-sm" style={{ color: "var(--qn-text-3)" }}>Guardrails for your simulated and algorithmic order routing.</p></div><div className="grid grid-cols-1 gap-5 md:grid-cols-2"><Field label="Max capital per trade" hint="Maximum rupee value allowed in a single automated order."><input type="number" value={riskSettings.maxPositionSize} onChange={(event) => setRiskSettings({ ...riskSettings, maxPositionSize: Number(event.target.value) })} className={inputClass} /></Field><Field label="Slippage tolerance (%)" hint="Simulated price impact upon an order fill."><input type="number" step="0.01" value={riskSettings.defaultSlippage} onChange={(event) => setRiskSettings({ ...riskSettings, defaultSlippage: Number(event.target.value) })} className={inputClass} /></Field><Field label="Max daily drawdown (%)" hint="Halts algorithmic orders after this threshold."><input type="number" step="0.1" value={riskSettings.maxDrawdownLimit} onChange={(event) => setRiskSettings({ ...riskSettings, maxDrawdownLimit: Number(event.target.value) })} className={inputClass} /></Field><Field label="Default stop-loss (%)" hint="Attached automatically to generated buy signals."><input type="number" step="0.1" value={riskSettings.defaultStopLoss} onChange={(event) => setRiskSettings({ ...riskSettings, defaultStopLoss: Number(event.target.value) })} className={inputClass} /></Field></div><div className="mt-6 border-t pt-6" style={{ borderColor: "var(--qn-border)" }}><ToggleRow icon={ShieldCheck} title="Auto trailing stop" description="Dynamically update stops as a position moves in your favour." checked={riskSettings.autoTrailingStop} onChange={(value) => setRiskSettings({ ...riskSettings, autoTrailingStop: value })} /></div><div className="mt-6 flex flex-col gap-4 rounded-xl p-4 sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--qn-bear-dim)", border: "1px solid rgba(220, 38, 38, 0.18)" }}><div><p className="text-sm font-bold" style={{ color: "var(--qn-bear)", fontFamily: "'Space Grotesk', sans-serif" }}>Reset paper-trading data</p><p className="mt-0.5 text-xs" style={{ color: "var(--qn-text-2)" }}>Clear local paper-trading history and restore the virtual balance to ₹1,00,000.</p></div><button type="button" onClick={handleResetPaperData} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-bold" style={{ borderColor: "rgba(220, 38, 38, 0.28)", background: "#fff", color: "var(--qn-bear)" }}><RefreshCcw size={14} /> Reset data</button></div></section>}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1.5">
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    value={profile.username}
-                    onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-                    className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 font-mono transition"
-                  />
-                </div>
+          {activeTab === "api" && <section className="qn-card p-5 sm:p-6"><div className="mb-6"><h2 className="text-xl font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>Broker connections</h2><p className="mt-1 text-sm" style={{ color: "var(--qn-text-3)" }}>Configure broker credentials and local market-data endpoints.</p></div><div className="space-y-5"><Field label="Execution broker"><select value={apiKeys.broker} onChange={(event) => setApiKeys({ ...apiKeys, broker: event.target.value })} className={inputClass}><option value="Zerodha Kite">Zerodha Kite Connect</option><option value="Upstox">Upstox API v2</option><option value="Dhan">Dhan HQ</option><option value="Paper Sim">Simulated Sandbox Engine</option></select></Field><div className="grid grid-cols-1 gap-5 md:grid-cols-2"><Field label="API key / app client ID"><input type="password" value={apiKeys.apiKey} onChange={(event) => setApiKeys({ ...apiKeys, apiKey: event.target.value })} className={inputClass} /></Field><Field label="API secret token"><input type="password" value={apiKeys.apiSecret} onChange={(event) => setApiKeys({ ...apiKeys, apiSecret: event.target.value })} className={inputClass} /></Field></div><Field label="FastAPI market engine endpoint" hint="Default local address: http://127.0.0.1:8000"><input value={apiKeys.fastApiUrl} onChange={(event) => setApiKeys({ ...apiKeys, fastApiUrl: event.target.value })} className={inputClass} /></Field></div></section>}
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1.5">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 font-mono transition"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1.5">
-                    User Role & Workspace Type
-                  </label>
-                  <input
-                    type="text"
-                    value={profile.role}
-                    disabled
-                    className="w-full bg-[#070b16]/60 border border-[#162444] text-slate-400 rounded-xl px-3.5 py-2 text-xs font-mono cursor-not-allowed"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: Risk & Execution Rules */}
-          {activeTab === "risk" && (
-            <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-6 shadow-xl space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-wide">Institutional Risk Guardrails</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Parameters to safeguard simulated and algorithmic order routing.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1">
-                    Max Capital Per Trade (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={riskSettings.maxPositionSize}
-                    onChange={(e) => setRiskSettings({ ...riskSettings, maxPositionSize: Number(e.target.value) })}
-                    className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500 transition"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">Maximum rupee value allowed in any single automated order.</span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1">
-                    Slippage Tolerance (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={riskSettings.defaultSlippage}
-                    onChange={(e) => setRiskSettings({ ...riskSettings, defaultSlippage: Number(e.target.value) })}
-                    className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500 transition"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">Simulated price impact upon order fill (default: 0.05% or 5 bps).</span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1">
-                    Max Daily Drawdown Circuit Breaker (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={riskSettings.maxDrawdownLimit}
-                    onChange={(e) => setRiskSettings({ ...riskSettings, maxDrawdownLimit: Number(e.target.value) })}
-                    className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500 transition"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">Halts all algorithmic orders if portfolio drops beyond this threshold.</span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1">
-                    Default Auto Stop-Loss (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={riskSettings.defaultStopLoss}
-                    onChange={(e) => setRiskSettings({ ...riskSettings, defaultStopLoss: Number(e.target.value) })}
-                    className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500 transition"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">Attached automatically to every generated buy signal.</span>
-                </div>
-              </div>
-
-              {/* Danger Zone */}
-              <div className="pt-4 border-t border-[#162444] flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-rose-400 uppercase font-mono">Reset Simulation Environment</h4>
-                  <p className="text-[11px] text-slate-400">Clear all paper trade history and reset virtual balance to ₹1,00,000.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleResetPaperData}
-                  className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 transition"
-                >
-                  <RotateCcw size={13} /> Reset Paper Data
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: API & Broker Connectors */}
-          {activeTab === "api" && (
-            <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-6 shadow-xl space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-wide">Broker & Data Gateways</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Connect to Indian stock broker APIs or local FastAPI market services.</p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1.5">
-                    Execution Broker
-                  </label>
-                  <select
-                    value={apiKeys.broker}
-                    onChange={(e) => setApiKeys({ ...apiKeys, broker: e.target.value })}
-                    className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="Zerodha Kite">Zerodha Kite Connect</option>
-                    <option value="Upstox">Upstox API v2</option>
-                    <option value="Dhan">Dhan HQ</option>
-                    <option value="Paper Sim">Simulated Sandbox Engine</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1.5">
-                      API Key / App Client ID
-                    </label>
-                    <input
-                      type="password"
-                      value={apiKeys.apiKey}
-                      onChange={(e) => setApiKeys({ ...apiKeys, apiKey: e.target.value })}
-                      className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1.5">
-                      API Secret Token
-                    </label>
-                    <input
-                      type="password"
-                      value={apiKeys.apiSecret}
-                      onChange={(e) => setApiKeys({ ...apiKeys, apiSecret: e.target.value })}
-                      className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase font-mono mb-1.5">
-                    FastAPI Market Engine Endpoint
-                  </label>
-                  <input
-                    type="text"
-                    value={apiKeys.fastApiUrl}
-                    onChange={(e) => setApiKeys({ ...apiKeys, fastApiUrl: e.target.value })}
-                    className="w-full bg-[#070b16] border border-[#162444] rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">Default local address: http://127.0.0.1:8000</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: System Preferences */}
-          {activeTab === "system" && (
-            <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-6 shadow-xl space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-wide">Telemetry & Preferences</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Customize real-time polling cadence and terminal alert triggers.</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#070b16] border border-[#162444]">
-                  <div>
-                    <h4 className="text-xs font-bold text-white font-mono">Audio Signals & Alerts</h4>
-                    <p className="text-[11px] text-slate-400">Play chime when an algorithm triggers a BUY/SELL signal.</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={preferences.audioAlerts}
-                    onChange={(e) => setPreferences({ ...preferences, audioAlerts: e.target.checked })}
-                    className="h-4 w-4 accent-blue-600 rounded cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#070b16] border border-[#162444]">
-                  <div>
-                    <h4 className="text-xs font-bold text-white font-mono">Data Polling Cadence</h4>
-                    <p className="text-[11px] text-slate-400">Rate of quote updates fetched from the backend server.</p>
-                  </div>
-                  <select
-                    value={preferences.pollingInterval}
-                    onChange={(e) => setPreferences({ ...preferences, pollingInterval: e.target.value })}
-                    className="bg-[#0b1222] border border-[#162444] text-xs text-white rounded-lg px-2.5 py-1 font-mono focus:outline-none"
-                  >
-                    <option value="5s">Every 5 seconds</option>
-                    <option value="10s">Every 10 seconds</option>
-                    <option value="30s">Every 30 seconds</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#070b16] border border-[#162444]">
-                  <div>
-                    <h4 className="text-xs font-bold text-white font-mono">EOD Strategy Reports</h4>
-                    <p className="text-[11px] text-slate-400">Generate end-of-day P&L and risk breakdown summaries.</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={preferences.emailDailyReport}
-                    onChange={(e) => setPreferences({ ...preferences, emailDailyReport: e.target.checked })}
-                    className="h-4 w-4 accent-blue-600 rounded cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+          {activeTab === "system" && <section className="qn-card p-5 sm:p-6"><div className="mb-6"><h2 className="text-xl font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>System preferences</h2><p className="mt-1 text-sm" style={{ color: "var(--qn-text-3)" }}>Customize alert behaviour, update cadence, and daily summaries.</p></div><div className="space-y-3"><ToggleRow icon={Bell} title="Audio signals & alerts" description="Play a chime when an algorithm triggers a BUY or SELL signal." checked={preferences.audioAlerts} onChange={(value) => setPreferences({ ...preferences, audioAlerts: value })} /><ToggleRow icon={Cpu} title="Data polling cadence" description="Rate at which market data is requested from the backend."><select value={preferences.pollingInterval} onChange={(event) => setPreferences({ ...preferences, pollingInterval: event.target.value })} className="qn-input rounded-lg px-2.5 py-2 text-xs"><option value="5s">Every 5 seconds</option><option value="10s">Every 10 seconds</option><option value="30s">Every 30 seconds</option></select></ToggleRow><ToggleRow icon={Bell} title="End-of-day strategy reports" description="Generate daily P&L and risk-breakdown summaries." checked={preferences.emailDailyReport} onChange={(value) => setPreferences({ ...preferences, emailDailyReport: value })} /></div></section>}
+        </main>
       </div>
     </div>
   );
