@@ -11,6 +11,7 @@ from app.database.database import Base, engine
 from app.database import models
 from app.routers.auth import router as auth_router
 from app.api.prediction import router as prediction_router
+from app.api.stock_search import router as stock_search_router
 
 app = FastAPI(
     title="QuantNova API",
@@ -45,7 +46,7 @@ app.include_router(
     auth_router
 )
 app.include_router(prediction_router)
-
+app.include_router(stock_search_router)
 
 @app.get("/")
 def home():
