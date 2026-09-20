@@ -251,6 +251,23 @@ const STRATEGIES = {
     ],
   },
 
+
+  CAMARILLA_EMA20: {
+    label: "Camarilla Pivot + EMA 20",
+    description:
+      "Buy when price touches S2–S5 support levels and a bullish EMA 20 cross is confirmed within the window. Sell when price touches R2–R5 resistance levels and a bearish EMA 20 cross is confirmed.",
+
+    fields: [
+      {
+        name: "confirmation_bars",
+        label: "Confirmation Window",
+        defaultValue: 3,
+        min: 0,
+        max: 3,
+      },
+    ],
+  },
+
 };
 
 

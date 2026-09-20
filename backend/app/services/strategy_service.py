@@ -70,6 +70,7 @@ def create_strategy(
         "VWAP_EMA",
         "SUPERTREND",
         "ADX_EMA",
+        "CAMARILLA_EMA20",
     ]
 
     if strategy_type not in allowed_strategies:

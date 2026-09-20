@@ -802,10 +802,6 @@ def calculate_strategy_indicators(
         return history
 
 
-    raise ValueError(
-        f"Unsupported strategy type: "
-        f"{strategy_type}"
-    )
     # =====================================================
     # CAMARILLA PIVOT + EMA20
     # =====================================================
@@ -829,6 +825,12 @@ def calculate_strategy_indicators(
             history=history,
             ema_period=ema_period,
         )
+
+
+    raise ValueError(
+        f"Unsupported strategy type: "
+        f"{strategy_type}"
+    )
 
 # =========================================================
 # SIGNAL
@@ -1215,10 +1217,6 @@ def get_strategy_signal(
         return "HOLD"
 
 
-    raise ValueError(
-        f"Unsupported strategy type: "
-        f"{strategy_type}"
-    )
     # =====================================================
     # CAMARILLA PIVOT + EMA20
     # =====================================================
@@ -1247,6 +1245,12 @@ def get_strategy_signal(
             index=index,
             confirmation_bars=confirmation_bars,
         )
+
+
+    raise ValueError(
+        f"Unsupported strategy type: "
+        f"{strategy_type}"
+    )
 
 # =========================================================
 # BACKTEST
