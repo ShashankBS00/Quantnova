@@ -34,7 +34,10 @@ from app.services.strategies.ADX_EMA import (
     calculate_adx_ema,
     get_adx_ema_signal,
 )
-
+from app.services.strategies.Camarilla_EMA20 import (
+    calculate_camarilla_ema20,
+    get_camarilla_ema20_signal,
+)
 
 # ==========================================
 # Default Result
@@ -81,6 +84,24 @@ def default_result():
 
         # RSI
         "rsi": 0.0,
+
+        # Camarilla Pivot + EMA20
+        "pivot": 0.0,
+
+        "r1": 0.0,
+        "r2": 0.0,
+        "r3": 0.0,
+        "r4": 0.0,
+        "r5": 0.0,
+
+        "s1": 0.0,
+        "s2": 0.0,
+        "s3": 0.0,
+        "s4": 0.0,
+        "s5": 0.0,
+
+        "ema20": 0.0,
+        
     }
 
 
@@ -1028,6 +1049,193 @@ def generate_signal(
 
         })
 
+
+        return result
+        
+    # ======================================
+    # CAMARILLA PIVOT + EMA20
+    # ======================================
+
+    if strategy_type == "CAMARILLA_EMA20":
+
+        ema_period = int(
+            parameters.get(
+                "ema_period",
+                20,
+            )
+        )
+
+        confirmation_bars = int(
+            parameters.get(
+                "confirmation_bars",
+                3,
+            )
+        )
+
+        # Validate EMA
+        if ema_period < 2:
+
+            raise ValueError(
+                "EMA period must be at least 2"
+            )
+
+        # Validate confirmation window
+        if (
+            confirmation_bars < 0
+            or
+            confirmation_bars > 3
+        ):
+
+            raise ValueError(
+                "Confirmation bars must be between 0 and 3"
+            )
+
+        # Need enough candles
+        if len(df) < (
+            ema_period
+            + confirmation_bars
+            + 2
+        ):
+
+            return result
+
+        # Require OHLC
+        if (
+            "High" not in df.columns
+            or
+            "Low" not in df.columns
+        ):
+
+            return result
+
+        # Calculate Camarilla + EMA20
+        df = calculate_camarilla_ema20(
+            history=df,
+            ema_period=ema_period,
+        )
+
+        # Generate signal
+        signal = get_camarilla_ema20_signal(
+            history=df,
+            index=len(df) - 1,
+            confirmation_bars=confirmation_bars,
+        )
+
+        latest = df.iloc[-1]
+
+        result.update({
+
+            "signal": signal,
+
+            "pivot": (
+                round(
+                    float(latest["pivot"]),
+                    2,
+                )
+                if pd.notna(latest["pivot"])
+                else 0.0
+            ),
+
+            "r1": (
+                round(
+                    float(latest["r1"]),
+                    2,
+                )
+                if pd.notna(latest["r1"])
+                else 0.0
+            ),
+
+            "r2": (
+                round(
+                    float(latest["r2"]),
+                    2,
+                )
+                if pd.notna(latest["r2"])
+                else 0.0
+            ),
+
+            "r3": (
+                round(
+                    float(latest["r3"]),
+                    2,
+                )
+                if pd.notna(latest["r3"])
+                else 0.0
+            ),
+
+            "r4": (
+                round(
+                    float(latest["r4"]),
+                    2,
+                )
+                if pd.notna(latest["r4"])
+                else 0.0
+            ),
+
+            "r5": (
+                round(
+                    float(latest["r5"]),
+                    2,
+                )
+                if pd.notna(latest["r5"])
+                else 0.0
+            ),
+
+            "s1": (
+                round(
+                    float(latest["s1"]),
+                    2,
+                )
+                if pd.notna(latest["s1"])
+                else 0.0
+            ),
+
+            "s2": (
+                round(
+                    float(latest["s2"]),
+                    2,
+                )
+                if pd.notna(latest["s2"])
+                else 0.0
+            ),
+
+            "s3": (
+                round(
+                    float(latest["s3"]),
+                    2,
+                )
+                if pd.notna(latest["s3"])
+                else 0.0
+            ),
+
+            "s4": (
+                round(
+                    float(latest["s4"]),
+                    2,
+                )
+                if pd.notna(latest["s4"])
+                else 0.0
+            ),
+
+            "s5": (
+                round(
+                    float(latest["s5"]),
+                    2,
+                )
+                if pd.notna(latest["s5"])
+                else 0.0
+            ),
+
+            "ema20": (
+                round(
+                    float(latest["ema20"]),
+                    2,
+                )
+                if pd.notna(latest["ema20"])
+                else 0.0
+            ),
+
+        })
 
         return result
 

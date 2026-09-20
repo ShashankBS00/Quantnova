@@ -1,5 +1,9 @@
 import yfinance as yf
 import pandas as pd
+from app.services.strategies.Camarilla_EMA20 import (
+    calculate_camarilla_ema20,
+    get_camarilla_ema20_signal,
+)
 
 
 # =========================================================
@@ -802,7 +806,29 @@ def calculate_strategy_indicators(
         f"Unsupported strategy type: "
         f"{strategy_type}"
     )
+    # =====================================================
+    # CAMARILLA PIVOT + EMA20
+    # =====================================================
 
+    if strategy_type == "CAMARILLA_EMA20":
+
+        ema_period = int(
+            parameters.get(
+                "ema_period",
+                20,
+            )
+        )
+
+        if ema_period < 2:
+
+            raise ValueError(
+                "EMA period must be at least 2"
+            )
+
+        return calculate_camarilla_ema20(
+            history=history,
+            ema_period=ema_period,
+        )
 
 # =========================================================
 # SIGNAL
@@ -1193,7 +1219,34 @@ def get_strategy_signal(
         f"Unsupported strategy type: "
         f"{strategy_type}"
     )
+    # =====================================================
+    # CAMARILLA PIVOT + EMA20
+    # =====================================================
 
+    if strategy_type == "CAMARILLA_EMA20":
+
+        confirmation_bars = int(
+            parameters.get(
+                "confirmation_bars",
+                3,
+            )
+        )
+
+        if (
+            confirmation_bars < 0
+            or
+            confirmation_bars > 3
+        ):
+
+            raise ValueError(
+                "Confirmation bars must be between 0 and 3"
+            )
+
+        return get_camarilla_ema20_signal(
+            history=history,
+            index=index,
+            confirmation_bars=confirmation_bars,
+        )
 
 # =========================================================
 # BACKTEST
@@ -1318,6 +1371,26 @@ def run_strategy_backtest(
                     9,
                 )
             )
+        )
+    elif strategy_type == "CAMARILLA_EMA20":
+
+        ema_period = int(
+            parameters.get(
+                "ema_period",
+                20,
+            )
+        )
+
+        confirmation_bars = int(
+            parameters.get(
+                "confirmation_bars",
+                3,
+            )
+        )
+
+        minimum_period = max(
+            ema_period + confirmation_bars + 2,
+            30,
         )
 
     else:

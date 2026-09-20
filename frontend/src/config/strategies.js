@@ -252,7 +252,24 @@ export const strategyTypes = [
       },
     ],
   },
+  {
+  value: "CAMARILLA_EMA20",
+  label: "Camarilla Pivot + EMA 20",
+  description:
+    "Camarilla Pivot levels with EMA 20 confirmation. Price touches S2-S5 for BUY or R2-R5 for SELL, followed by an EMA 20 cross within the confirmation window.",
+  fields: [
+    {
+      name: "confirmation_bars",
+      label: "Confirmation Window",
+      type: "number",
+      defaultValue: 3,
+      min: 1,
+      max: 3,
+    },
+  ],
+}
 ];
+
 
 
 // ==========================================
