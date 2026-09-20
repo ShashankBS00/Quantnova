@@ -11,8 +11,13 @@ import yfinance as yf
 
 from fastapi import (
     APIRouter,
+    Depends,
     HTTPException,
 )
+
+from sqlalchemy.orm import Session
+
+from app.database.database import get_db
 
 from app.prediction.feature_engineering import (
     add_features,
@@ -23,6 +28,10 @@ from app.prediction.model_manager import (
     get_training_status,
     start_training,
     retry_training,
+)
+
+from app.services.prediction_history_service import (
+    save_prediction,
 )
 
 
@@ -101,8 +110,7 @@ def download_latest_data(
     if df is None or df.empty:
 
         raise ValueError(
-            f"No market data available "
-            f"for {symbol}."
+            f"No market data available for {symbol}."
         )
 
     df = flatten_yfinance_columns(
@@ -148,8 +156,7 @@ def download_latest_data(
     if df.empty:
 
         raise ValueError(
-            "No valid market data "
-            "after cleaning."
+            "No valid market data after cleaning."
         )
 
     return df
@@ -163,6 +170,7 @@ def download_latest_data(
 def predict(
     symbol: str = "TCS.NS",
     timeframe: str = "1d",
+    db: Session = Depends(get_db),
 ) -> dict[str, Any]:
 
     try:
@@ -246,10 +254,8 @@ def predict(
                     "symbol": symbol,
                     "timeframe": timeframe,
                     "message": (
-                        "AI model is not "
-                        "available yet. "
-                        "Training has been "
-                        "started automatically."
+                        "AI model is not available yet. "
+                        "Training has been started automatically."
                     ),
                 }
 
@@ -268,8 +274,7 @@ def predict(
                     "symbol": symbol,
                     "timeframe": timeframe,
                     "message": (
-                        "AI model training "
-                        "is in progress."
+                        "AI model training is in progress."
                     ),
                 }
 
@@ -285,8 +290,7 @@ def predict(
                     "symbol": symbol,
                     "timeframe": timeframe,
                     "message": (
-                        "AI model training "
-                        "failed."
+                        "AI model training failed."
                     ),
                     "error": training_status.get(
                         "error"
@@ -342,8 +346,7 @@ def predict(
         if feature_df.empty:
 
             raise ValueError(
-                "Unable to create prediction "
-                "features."
+                "Unable to create prediction features."
             )
 
         # ----------------------------------------------------
@@ -425,9 +428,7 @@ def predict(
         if len(feature_df) >= 2:
 
             previous_close = float(
-                feature_df.iloc[-2][
-                    "close"
-                ]
+                feature_df.iloc[-2]["close"]
             )
 
         daily_change_percent = None
@@ -445,9 +446,28 @@ def predict(
                 / previous_close
             ) * 100
 
-        # ----------------------------------------------------
-        # Response
-        # ----------------------------------------------------
+        # ====================================================
+        # SAVE PREDICTION TO DATABASE
+        # ====================================================
+
+        save_prediction(
+            db=db,
+            symbol=symbol,
+            timeframe=timeframe,
+            prediction=direction,
+            class_id=prediction,
+            probability=prediction_probability,
+            down_probability=probability_map["DOWN"],
+            hold_probability=probability_map["HOLD"],
+            up_probability=probability_map["UP"],
+            prediction_price=current_price,
+            prediction_time=feature_df.index[-1],
+            model_type="XGBoost",
+        )
+
+        # ====================================================
+        # RESPONSE
+        # ====================================================
 
         return {
             "success": True,
@@ -473,21 +493,15 @@ def predict(
 
             "probabilities": {
                 "DOWN": round(
-                    probability_map[
-                        "DOWN"
-                    ],
+                    probability_map["DOWN"],
                     4,
                 ),
                 "HOLD": round(
-                    probability_map[
-                        "HOLD"
-                    ],
+                    probability_map["HOLD"],
                     4,
                 ),
                 "UP": round(
-                    probability_map[
-                        "UP"
-                    ],
+                    probability_map["UP"],
                     4,
                 ),
             },
@@ -502,8 +516,7 @@ def predict(
                     daily_change_percent,
                     2,
                 )
-                if daily_change_percent
-                is not None
+                if daily_change_percent is not None
                 else None
             ),
 
@@ -566,8 +579,8 @@ def prediction_status(
         raise HTTPException(
             status_code=500,
             detail=(
-                "Unable to get model "
-                f"status: {str(error)}"
+                "Unable to get model status: "
+                f"{str(error)}"
             ),
         )
 
@@ -588,8 +601,7 @@ def train_prediction_model(
         if threshold <= 0:
 
             raise ValueError(
-                "Threshold must be "
-                "greater than zero."
+                "Threshold must be greater than zero."
             )
 
         result = start_training(
@@ -637,8 +649,7 @@ def retry_prediction_model(
         if threshold <= 0:
 
             raise ValueError(
-                "Threshold must be "
-                "greater than zero."
+                "Threshold must be greater than zero."
             )
 
         result = retry_training(

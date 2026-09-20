@@ -10,6 +10,7 @@ from sqlalchemy import (
     JSON,
     CheckConstraint,
     UniqueConstraint,
+    Boolean,
 )
 
 from sqlalchemy.orm import relationship
@@ -611,5 +612,174 @@ class PaperTrade(Base):
         CheckConstraint(
             "target IS NULL OR target > 0",
             name="valid_paper_target",
+        ),
+    )
+# ==========================================
+# AI Prediction History
+# ==========================================
+
+class PredictionHistory(Base):
+    __tablename__ = "prediction_history"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    # --------------------------------------
+    # Market Information
+    # --------------------------------------
+
+    symbol = Column(
+        String(30),
+        nullable=False,
+        index=True,
+    )
+
+    timeframe = Column(
+        String(20),
+        nullable=False,
+        index=True,
+    )
+
+    # --------------------------------------
+    # Prediction Information
+    # --------------------------------------
+
+    prediction = Column(
+        String(10),
+        nullable=False,
+    )
+
+    class_id = Column(
+        Integer,
+        nullable=False,
+    )
+
+    probability = Column(
+        Numeric(8, 6),
+        nullable=False,
+    )
+
+    down_probability = Column(
+        Numeric(8, 6),
+        nullable=False,
+    )
+
+    hold_probability = Column(
+        Numeric(8, 6),
+        nullable=False,
+    )
+
+    up_probability = Column(
+        Numeric(8, 6),
+        nullable=False,
+    )
+
+    # --------------------------------------
+    # Market Price At Prediction
+    # --------------------------------------
+
+    prediction_price = Column(
+        Numeric(15, 2),
+        nullable=False,
+    )
+
+    prediction_time = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+    )
+
+    # --------------------------------------
+    # Actual Future Result
+    # --------------------------------------
+
+    actual_price = Column(
+        Numeric(15, 2),
+        nullable=True,
+    )
+
+    actual_return_percent = Column(
+        Numeric(10, 4),
+        nullable=True,
+    )
+
+    actual_direction = Column(
+        String(10),
+        nullable=True,
+    )
+
+    # --------------------------------------
+    # Evaluation
+    # --------------------------------------
+
+    is_correct = Column(
+        Boolean,
+        nullable=True,
+    )
+
+    verified_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    # --------------------------------------
+    # Model Information
+    # --------------------------------------
+
+    model_type = Column(
+        String(50),
+        nullable=False,
+        default="XGBoost",
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    # --------------------------------------
+    # Constraints
+    # --------------------------------------
+
+    __table_args__ = (
+        UniqueConstraint(
+            "symbol",
+            "timeframe",
+            "prediction_time",
+            name="unique_prediction_bar",
+        ),
+
+        CheckConstraint(
+            "class_id >= 0 AND class_id <= 2",
+            name="valid_prediction_class",
+        ),
+
+        CheckConstraint(
+            "probability >= 0 AND probability <= 1",
+            name="valid_prediction_probability",
+        ),
+
+        CheckConstraint(
+            "down_probability >= 0 AND down_probability <= 1",
+            name="valid_down_probability",
+        ),
+
+        CheckConstraint(
+            "hold_probability >= 0 AND hold_probability <= 1",
+            name="valid_hold_probability",
+        ),
+
+        CheckConstraint(
+            "up_probability >= 0 AND up_probability <= 1",
+            name="valid_up_probability",
+        ),
+
+        CheckConstraint(
+            "prediction_price > 0",
+            name="positive_prediction_price",
         ),
     )
