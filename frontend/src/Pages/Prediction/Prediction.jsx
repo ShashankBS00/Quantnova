@@ -23,8 +23,9 @@ import {
 import {
   getPrediction,
   searchStocks,
+  getPredictionHistory,
+  getPredictionPerformance,
 } from "../../services/predictionService";
-
 
 // ============================================================
 // TIMEFRAMES
@@ -137,7 +138,22 @@ const Prediction = () => {
   const trainingPollRef =
     useRef(null);
 
+// ----------------------------------------------------------
+// PREDICTION HISTORY
+// ----------------------------------------------------------
 
+const [predictionHistory, setPredictionHistory] =
+  useState([]);
+
+const [predictionPerformance, setPredictionPerformance] =
+  useState(null);
+
+const [historyLoading, setHistoryLoading] =
+  useState(false);
+
+const [historyError, setHistoryError] =
+  useState("");
+  
   // ==========================================================
   // SEARCH STOCKS
   // ==========================================================
@@ -444,6 +460,84 @@ const Prediction = () => {
     fetchPrediction,
   ]);
 
+
+
+const fetchPredictionHistory =
+  useCallback(
+    async () => {
+
+      if (!selectedStock?.symbol) {
+        return;
+      }
+
+      setHistoryLoading(true);
+      setHistoryError("");
+
+      try {
+
+        const [
+          historyData,
+          performanceData,
+        ] = await Promise.all([
+          getPredictionHistory(
+            selectedStock.symbol,
+            timeframe,
+            50
+          ),
+
+          getPredictionPerformance(
+            selectedStock.symbol,
+            timeframe
+          ),
+        ]);
+
+        setPredictionHistory(
+          historyData.results || []
+        );
+
+        setPredictionPerformance(
+          performanceData || null
+        );
+
+      } catch (error) {
+
+        console.error(
+          "History loading error:",
+          error
+        );
+
+        setHistoryError(
+          error.message ||
+          "Unable to load prediction history."
+        );
+
+      } finally {
+
+        setHistoryLoading(false);
+
+      }
+
+    },
+    [
+      selectedStock,
+      timeframe,
+    ]
+  );
+
+
+  // ==========================================================
+  // PREDICTION HISTORY LOAD
+  // ==========================================================
+
+  useEffect(() => {
+
+    fetchPredictionHistory();
+
+  }, [fetchPredictionHistory]);
+
+
+
+  
 
   // ==========================================================
   // CLEANUP
@@ -1644,6 +1738,15 @@ const Prediction = () => {
 
           )}
 
+        <PredictionHistory
+          selectedStock={selectedStock}
+          fetchPredictionHistory={fetchPredictionHistory}
+          historyLoading={historyLoading}
+          predictionPerformance={predictionPerformance}
+          predictionHistory={predictionHistory}
+          historyError={historyError}
+        />
+
       </div>
 
     </div>
@@ -1746,5 +1849,388 @@ const InfoCard = ({
   </div>
 );
 
+
+// ============================================================
+// PREDICTION HISTORY
+// ============================================================
+
+const PredictionHistory = ({
+  selectedStock,
+  fetchPredictionHistory,
+  historyLoading,
+  predictionPerformance,
+  predictionHistory,
+  historyError,
+}) => (
+  <>
+{/* ============================================================
+    PREDICTION PERFORMANCE
+============================================================ */}
+
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+  {/* TOTAL SAVED PREDICTIONS */}
+
+  <InfoCard
+    title="Predictions"
+    value={predictionHistory.length}
+    subtitle="Total saved"
+  />
+
+
+  {/* VERIFIED PREDICTIONS */}
+
+  <InfoCard
+    title="Verified"
+    value={
+      predictionPerformance?.total_predictions ?? 0
+    }
+    subtitle="Completed predictions"
+  />
+
+
+  {/* CORRECT PREDICTIONS */}
+
+  <InfoCard
+    title="Correct"
+    value={
+      predictionPerformance?.correct_predictions ?? 0
+    }
+    subtitle="Correct predictions"
+  />
+
+
+  {/* ACCURACY */}
+
+  <InfoCard
+    title="Accuracy"
+    value={
+      predictionPerformance?.accuracy != null
+        ? `${Number(
+            predictionPerformance.accuracy
+          ).toFixed(2)}%`
+        : "--"
+    }
+    subtitle="Verified predictions only"
+  />
+
+</div>
+{/* ============================================================
+    PREDICTION HISTORY
+============================================================ */}
+
+<div className="mt-8">
+
+  <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
+
+    {/* HEADER */}
+
+    <div className="px-6 py-5 border-b border-slate-200">
+
+      <h2 className="text-xl font-bold text-slate-900">
+        Prediction History
+      </h2>
+
+      <p className="text-sm text-slate-500 mt-1">
+        Historical AI predictions and their verified outcomes
+      </p>
+
+    </div>
+
+
+    {/* ERROR */}
+
+    {historyError && (
+
+      <div className="m-5 p-4 rounded-xl bg-red-50 border border-red-200 flex items-center gap-3">
+
+        <AlertCircle className="w-5 h-5 text-red-500" />
+
+        <p className="text-sm text-red-700">
+          {historyError}
+        </p>
+
+      </div>
+
+    )}
+
+
+    {/* LOADING */}
+
+    {historyLoading && predictionHistory.length === 0 && (
+
+      <div className="py-12 flex justify-center items-center gap-3 text-sm text-slate-500">
+
+        <Loader2 className="w-5 h-5 animate-spin" />
+
+        Loading prediction history...
+
+      </div>
+
+    )}
+
+
+    {/* EMPTY */}
+
+    {!historyLoading &&
+      predictionHistory.length === 0 &&
+      !historyError && (
+
+        <div className="py-12 text-center">
+
+          <Clock className="w-10 h-10 mx-auto text-slate-300" />
+
+          <p className="mt-3 text-sm font-semibold text-slate-600">
+            No prediction history yet
+          </p>
+
+          <p className="mt-1 text-xs text-slate-400">
+            Predictions will appear here automatically.
+          </p>
+
+        </div>
+
+      )}
+
+
+    {/* TABLE */}
+
+    {predictionHistory.length > 0 && (
+
+      <div className="overflow-x-auto">
+
+        <table className="w-full text-sm">
+
+          <thead>
+
+            <tr className="bg-slate-50 border-b border-slate-200">
+
+              <th className="px-5 py-4 text-left font-semibold text-slate-500">
+                Date
+              </th>
+
+              <th className="px-5 py-4 text-left font-semibold text-slate-500">
+                Prediction
+              </th>
+
+              <th className="px-5 py-4 text-left font-semibold text-slate-500">
+                Probability
+              </th>
+
+              <th className="px-5 py-4 text-left font-semibold text-slate-500">
+                Prediction Price
+              </th>
+
+              <th className="px-5 py-4 text-left font-semibold text-slate-500">
+                Actual Price
+              </th>
+
+              <th className="px-5 py-4 text-left font-semibold text-slate-500">
+                Actual
+              </th>
+
+              <th className="px-5 py-4 text-left font-semibold text-slate-500">
+                Result
+              </th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            {predictionHistory.map(
+              (item) => {
+
+                const predictionValue =
+                  item.prediction;
+
+                const result =
+                  item.is_correct;
+
+                return (
+
+                  <tr
+                    key={item.id}
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition"
+                  >
+
+                    {/* DATE */}
+
+                    <td className="px-5 py-4 whitespace-nowrap">
+
+                      <p className="font-medium text-slate-700">
+                        {item.prediction_time
+                          ? new Date(
+                              item.prediction_time
+                            ).toLocaleDateString(
+                              "en-IN",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )
+                          : "--"}
+                      </p>
+
+                    </td>
+
+
+                    {/* PREDICTION */}
+
+                    <td className="px-5 py-4">
+
+                      <span
+                        className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
+                          predictionValue === "UP"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : predictionValue === "DOWN"
+                            ? "bg-red-50 text-red-700"
+                            : "bg-amber-50 text-amber-700"
+                        }`}
+                      >
+
+                        {predictionValue}
+
+                      </span>
+
+                    </td>
+
+
+                    {/* PROBABILITY */}
+
+                    <td className="px-5 py-4 font-semibold text-slate-700">
+
+                      {item.probability != null
+                        ? `${(
+                            Number(
+                              item.probability
+                            ) * 100
+                          ).toFixed(2)}%`
+                        : "--"}
+
+                    </td>
+
+
+                    {/* PREDICTION PRICE */}
+
+                    <td className="px-5 py-4 font-medium text-slate-700">
+
+                      {item.prediction_price != null
+                        ? `₹${Number(
+                            item.prediction_price
+                          ).toLocaleString(
+                            "en-IN",
+                            {
+                              minimumFractionDigits: 2,
+                            }
+                          )}`
+                        : "--"}
+
+                    </td>
+
+
+                    {/* ACTUAL PRICE */}
+
+                    <td className="px-5 py-4 font-medium text-slate-700">
+
+                      {item.actual_price != null
+                        ? `₹${Number(
+                            item.actual_price
+                          ).toLocaleString(
+                            "en-IN",
+                            {
+                              minimumFractionDigits: 2,
+                            }
+                          )}`
+                        : (
+                          <span className="text-slate-400">
+                            Pending
+                          </span>
+                        )}
+
+                    </td>
+
+
+                    {/* ACTUAL DIRECTION */}
+
+                    <td className="px-5 py-4">
+
+                      {item.actual_direction ? (
+
+                        <span
+                          className={`font-bold ${
+                            item.actual_direction === "UP"
+                              ? "text-emerald-600"
+                              : item.actual_direction === "DOWN"
+                              ? "text-red-600"
+                              : "text-amber-600"
+                          }`}
+                        >
+
+                          {item.actual_direction}
+
+                        </span>
+
+                      ) : (
+
+                        <span className="text-slate-400">
+                          Pending
+                        </span>
+
+                      )}
+
+                    </td>
+
+
+                    {/* RESULT */}
+
+                    <td className="px-5 py-4">
+
+                      {result === true ? (
+
+                        <span className="inline-flex px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+                          ✓ Correct
+                        </span>
+
+                      ) : result === false ? (
+
+                        <span className="inline-flex px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold">
+                          ✕ Wrong
+                        </span>
+
+                      ) : (
+
+                        <span className="inline-flex px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
+                          Pending
+                        </span>
+
+                      )}
+
+                    </td>
+
+                  </tr>
+
+                );
+
+              }
+            )}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    )}
+
+  </div>
+
+</div>
+
+  </>
+);
 
 export default Prediction;

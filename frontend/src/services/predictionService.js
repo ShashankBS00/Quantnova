@@ -123,5 +123,175 @@ export const searchStocks = async (
   }
 };
 
+// ============================================================
+// PREDICTION HISTORY
+// ============================================================
+
+export const getPredictionHistory = async (
+  symbol,
+  timeframe = "1d",
+  limit = 50
+) => {
+
+  try {
+
+    const response =
+      await predictionApi.get(
+        "/prediction/history",
+        {
+          params: {
+            symbol,
+            timeframe,
+            limit,
+          },
+        }
+      );
+
+    return response.data;
+
+  } catch (error) {
+
+    console.error(
+      "Prediction History API Error:",
+      error
+    );
+
+    if (error.response) {
+
+      throw new Error(
+        error.response.data?.detail ||
+        "Failed to load prediction history."
+      );
+
+    }
+
+    if (error.request) {
+
+      throw new Error(
+        "Cannot connect to QuantNova backend."
+      );
+
+    }
+
+    throw new Error(
+      error.message ||
+      "Failed to load prediction history."
+    );
+  }
+};
+
+
+// ============================================================
+// PREDICTION PERFORMANCE
+// ============================================================
+
+export const getPredictionPerformance = async (
+  symbol,
+  timeframe = "1d"
+) => {
+
+  try {
+
+    const response =
+      await predictionApi.get(
+        "/prediction/performance",
+        {
+          params: {
+            symbol,
+            timeframe,
+          },
+        }
+      );
+
+    return response.data;
+
+  } catch (error) {
+
+    console.error(
+      "Prediction Performance API Error:",
+      error
+    );
+
+    if (error.response) {
+
+      throw new Error(
+        error.response.data?.detail ||
+        "Failed to load prediction performance."
+      );
+
+    }
+
+    if (error.request) {
+
+      throw new Error(
+        "Cannot connect to QuantNova backend."
+      );
+
+    }
+
+    throw new Error(
+      error.message ||
+      "Failed to load prediction performance."
+    );
+  }
+};
+
+
+// ============================================================
+// MANUAL VERIFICATION
+// ============================================================
+
+export const verifyPredictionHistory = async (
+  symbol,
+  timeframe = "1d"
+) => {
+
+  try {
+
+    const response =
+      await predictionApi.post(
+        "/prediction/history/verify",
+        null,
+        {
+          params: {
+            symbol,
+            timeframe,
+          },
+        }
+      );
+
+    return response.data;
+
+  } catch (error) {
+
+    console.error(
+      "Prediction Verification API Error:",
+      error
+    );
+
+    if (error.response) {
+
+      throw new Error(
+        error.response.data?.detail ||
+        "Failed to verify predictions."
+      );
+
+    }
+
+    if (error.request) {
+
+      throw new Error(
+        "Cannot connect to QuantNova backend."
+      );
+
+    }
+
+    throw new Error(
+      error.message ||
+      "Failed to verify predictions."
+    );
+  }
+};
+
 
 export default predictionApi;
