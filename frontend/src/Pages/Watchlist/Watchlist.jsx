@@ -1,355 +1,418 @@
-import React, { useState } from "react";
-import { 
-  Star, 
-  Search, 
-  Plus, 
-  Trash2, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  TrendingUp,
-  ExternalLink 
+import { useEffect, useRef, useState } from "react";
+import {
+  Star,
+  Search,
+  Plus,
+  Trash2,
+  ArrowUpRight,
+  ArrowDownRight,
+  ExternalLink,
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getMarketHistory } from "@/services/marketService";
 
-// Initial NSE Watchlist Data
-const INITIAL_WATCHLIST = [
-  {
-    symbol: "RELIANCE.NS",
-    name: "Reliance Industries Ltd",
-    price: 2942.50,
-    change: 52.10,
-    pctChange: 1.80,
-    volume: "12.4M",
-    dayHigh: 2960.00,
-    dayLow: 2898.00,
-    sparkline: [2898, 2915, 2908, 2930, 2925, 2948, 2942.5],
-  },
-  {
-    symbol: "TCS.NS",
-    name: "Tata Consultancy Services",
-    price: 3814.20,
-    change: -15.30,
-    pctChange: -0.40,
-    volume: "4.8M",
-    dayHigh: 3845.00,
-    dayLow: 3798.00,
-    sparkline: [3840, 3825, 3830, 3810, 3805, 3818, 3814.2],
-  },
-  {
-    symbol: "INFY.NS",
-    name: "Infosys Limited",
-    price: 1623.40,
-    change: 33.40,
-    pctChange: 2.10,
-    volume: "8.2M",
-    dayHigh: 1635.00,
-    dayLow: 1595.00,
-    sparkline: [1596, 1604, 1612, 1608, 1620, 1630, 1623.4],
-  },
-  {
-    symbol: "HDFCBANK.NS",
-    name: "HDFC Bank Ltd",
-    price: 1648.10,
-    change: -11.60,
-    pctChange: -0.70,
-    volume: "14.1M",
-    dayHigh: 1665.00,
-    dayLow: 1642.00,
-    sparkline: [1664, 1658, 1650, 1655, 1645, 1646, 1648.1],
-  },
-  {
-    symbol: "TATAMOTORS.NS",
-    name: "Tata Motors Limited",
-    price: 985.60,
-    change: 13.60,
-    pctChange: 1.40,
-    volume: "9.5M",
-    dayHigh: 994.00,
-    dayLow: 973.00,
-    sparkline: [974, 980, 978, 986, 982, 990, 985.6],
-  },
-  {
-    symbol: "ICICIBANK.NS",
-    name: "ICICI Bank Ltd",
-    price: 1180.30,
-    change: 7.10,
-    pctChange: 0.60,
-    volume: "10.3M",
-    dayHigh: 1188.00,
-    dayLow: 1172.00,
-    sparkline: [1173, 1176, 1182, 1179, 1184, 1181, 1180.3],
-  }
+// ─── Default watchlist ────────────────────────────────────────────────────────
+const DEFAULT_SYMBOLS = [
+  { symbol: "RELIANCE.NS",   name: "Reliance Industries Ltd" },
+  { symbol: "TCS.NS",        name: "Tata Consultancy Services" },
+  { symbol: "INFY.NS",       name: "Infosys Limited" },
+  { symbol: "HDFCBANK.NS",   name: "HDFC Bank Ltd" },
+  { symbol: "TATAMOTORS.NS", name: "Tata Motors Limited" },
+  { symbol: "ICICIBANK.NS",  name: "ICICI Bank Ltd" },
 ];
 
-export default function Watchlist() {
-  const [stocks, setStocks] = useState(INITIAL_WATCHLIST);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [newSymbol, setNewSymbol] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
+// ─── Format volume numbers ────────────────────────────────────────────────────
+function fmtVol(n) {
+  if (!n) return "—";
+  if (n >= 1e7) return (n / 1e7).toFixed(1) + "Cr";
+  if (n >= 1e5) return (n / 1e5).toFixed(1) + "L";
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  return String(n);
+}
 
-  // Search filter
-  const filteredStocks = stocks.filter(
-    (s) =>
-      s.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.name.toLowerCase().includes(searchQuery.toLowerCase())
+// ─── SVG mini sparkline ───────────────────────────────────────────────────────
+function Sparkline({ data, positive }) {
+  if (!data || data.length < 2) return <span style={{ color: "#374151", fontSize: 11 }}>—</span>;
+  const W = 80, H = 28;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * W;
+      const y = H - ((v - min) / range) * (H - 6) - 3;
+      return `${x},${y}`;
+    })
+    .join(" ");
+  return (
+    <svg width={W} height={H} style={{ overflow: "visible" }}>
+      <polyline
+        fill="none"
+        stroke={positive ? "#10b981" : "#ef4444"}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={pts}
+      />
+    </svg>
   );
+}
 
-  // Remove ticker from watchlist
-  const handleRemove = (symbol) => {
-    setStocks(stocks.filter((s) => s.symbol !== symbol));
-  };
+// ─── Skeleton row ─────────────────────────────────────────────────────────────
+function SkeletonRow() {
+  return (
+    <tr>
+      {[220, 90, 110, 80, 100, 55, 90].map((w, i) => (
+        <td key={i} style={{ padding: "16px 20px" }}>
+          <div style={{ height: 13, width: w, borderRadius: 6, background: "rgba(255,255,255,0.05)", animation: "wlPulse 1.4s ease-in-out infinite" }} />
+        </td>
+      ))}
+    </tr>
+  );
+}
 
-  // Add new ticker simulation
-  const handleAddStock = (e) => {
-    e.preventDefault();
-    if (!newSymbol.trim()) return;
+// ─── Main component ───────────────────────────────────────────────────────────
+export default function WatchlistPage() {
+  const [symbols,    setSymbols]    = useState(DEFAULT_SYMBOLS);
+  const [marketData, setMarketData] = useState({});
+  const [loading,    setLoading]    = useState(true);
+  const [filter,     setFilter]     = useState("");
+  const [isAdding,   setIsAdding]   = useState(false);
+  const [newSymbol,  setNewSymbol]  = useState("");
+  const addInputRef = useRef(null);
 
-    const formatted = newSymbol.toUpperCase().trim();
-    const symbolWithExt = formatted.endsWith(".NS") ? formatted : `${formatted}.NS`;
-
-    if (stocks.some((s) => s.symbol === symbolWithExt)) {
-      alert("Ticker is already in your watchlist");
-      return;
+  // live data
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const results = await Promise.allSettled(
+          symbols.map(({ symbol }) => getMarketHistory(symbol, "5d", "1d"))
+        );
+        if (cancelled) return;
+        const map = {};
+        results.forEach((res, idx) => {
+          const sym = symbols[idx].symbol;
+          if (res.status === "fulfilled") {
+            const candles = res.value?.data || [];
+            if (candles.length >= 2) {
+              const prev = candles[candles.length - 2];
+              const cur  = candles[candles.length - 1];
+              const change    = cur.close - prev.close;
+              const pctChange = (change / prev.close) * 100;
+              map[sym] = {
+                price:     cur.close,
+                change,
+                pctChange,
+                dayHigh:   cur.high,
+                dayLow:    cur.low,
+                volume:    fmtVol(cur.volume),
+                sparkline: candles.slice(-10).map((c) => c.close),
+              };
+            }
+          }
+        });
+        setMarketData(map);
+      } catch (e) {
+        console.error("Watchlist load error:", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
+    load();
+    return () => { cancelled = true; };
+  }, [symbols]);
 
-    const newEntry = {
-      symbol: symbolWithExt,
-      name: `${formatted.replace(".NS", "")} Equities Ltd`,
-      price: 1540.00,
-      change: 12.50,
-      pctChange: 0.82,
-      volume: "3.2M",
-      dayHigh: 1560.00,
-      dayLow: 1520.00,
-      sparkline: [1520, 1530, 1528, 1545, 1538, 1550, 1540],
-    };
+  useEffect(() => {
+    if (isAdding) setTimeout(() => addInputRef.current?.focus(), 80);
+  }, [isAdding]);
 
-    setStocks([newEntry, ...stocks]);
+  function handleRemove(symbol) {
+    setSymbols((prev) => prev.filter((s) => s.symbol !== symbol));
+    setMarketData((prev) => { const n = { ...prev }; delete n[symbol]; return n; });
+  }
+
+  function handleAdd(e) {
+    e.preventDefault();
+    const raw = newSymbol.trim().toUpperCase();
+    if (!raw) return;
+    const sym = /\.(NS|BO)$/.test(raw) ? raw : `${raw}.NS`;
+    if (symbols.some((s) => s.symbol === sym)) { alert("Already in watchlist"); return; }
+    setSymbols((prev) => [{ symbol: sym, name: raw.replace(/\.(NS|BO)$/, "") + " Ltd" }, ...prev]);
     setNewSymbol("");
     setIsAdding(false);
-  };
+  }
 
-  // Render miniature SVG sparkline
-  const renderSparkline = (data, isPositive) => {
-    const min = Math.min(...data);
-    const max = Math.max(...data);
-    const range = max - min || 1;
-    const width = 80;
-    const height = 26;
+  const filtered = symbols.filter(({ symbol, name }) => {
+    const q = filter.toLowerCase();
+    return symbol.toLowerCase().includes(q) || name.toLowerCase().includes(q);
+  });
 
-    const points = data
-      .map((val, idx) => {
-        const x = (idx / (data.length - 1)) * width;
-        const y = height - ((val - min) / range) * (height - 6) - 3;
-        return `${x},${y}`;
-      })
-      .join(" ");
-
-    return (
-      <svg width={width} height={height} className="overflow-visible">
-        <polyline
-          fill="none"
-          stroke={isPositive ? "#10b981" : "#ef4444"}
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-        />
-      </svg>
-    );
-  };
+  // palette
+  const BG_DEEP  = "#070c18";
+  const BG_CARD  = "#0b1120";
+  const BG_HDR   = "#060b16";
+  const BORDER   = "#1a2744";
+  const BORDER2  = "#111d35";
+  const T1       = "#f1f5f9";
+  const T2       = "#94a3b8";
+  const T3       = "#475569";
+  const BLUE     = "#3b82f6";
+  const GREEN    = "#10b981";
+  const RED      = "#ef4444";
 
   return (
-    <div className="mx-auto w-full max-w-[1580px] space-y-6 pb-12">
-      {/* 1. Header Bar */}
-      <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg shadow-black/20">
-        <div>
-          <div className="flex items-center gap-2 mb-1 text-blue-400 font-mono text-xs font-semibold uppercase tracking-wider">
-            <Star size={14} className="fill-blue-400" /> Curated Monitor
+    <div style={{ minHeight: "100vh", background: BG_DEEP, padding: "24px 28px 60px", fontFamily: "'Inter', sans-serif" }}>
+      <style>{`
+        @keyframes wlPulse { 0%,100%{opacity:.4} 50%{opacity:.85} }
+        .wl-row:hover          { background: rgba(255,255,255,0.023) !important; }
+        .wl-trade:hover        { background: rgba(16,185,129,0.22)   !important; }
+        .wl-del:hover          { color: #ef4444 !important; }
+        .wl-ext:hover          { color: #60a5fa !important; }
+        .wl-fi:focus           { border-color: #3b82f6 !important; outline: none; }
+        .wl-add-btn:hover      { opacity: .85; }
+      `}</style>
+
+      <div style={{ maxWidth: 1440, margin: "0 auto" }}>
+
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div style={{
+          background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 18,
+          padding: "22px 28px", display: "flex", flexWrap: "wrap",
+          alignItems: "center", justifyContent: "space-between",
+          gap: 16, marginBottom: 18,
+          boxShadow: "0 4px 40px rgba(0,0,0,0.45)",
+        }}>
+          <div>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6, marginBottom: 6,
+              color: BLUE, fontFamily: "'JetBrains Mono',monospace",
+              fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+            }}>
+              <Star size={12} fill={BLUE} /> Curated Monitor
+            </div>
+            <h1 style={{ color: T1, fontFamily: "'Space Grotesk',sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>
+              Market Watchlist
+            </h1>
+            <p style={{ color: T2, fontSize: 12.5, marginTop: 4 }}>
+              Track real-time momentum, spreads, and fast execution setups for your primary assets.
+            </p>
           </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            Market Watchlist
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Track real-time momentum, spreads, and fast execution setups for your primary assets.
-          </p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* filter */}
+            <div style={{ position: "relative" }}>
+              <Search size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T3, pointerEvents: "none" }} />
+              <input
+                className="wl-fi"
+                type="text"
+                placeholder="Filter watchlist..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                style={{
+                  background: BG_HDR, border: `1px solid ${BORDER}`, borderRadius: 12,
+                  padding: "8px 12px 8px 34px", color: T1, fontSize: 12,
+                  fontFamily: "'Inter',sans-serif", width: 220, transition: "border-color 0.15s",
+                }}
+              />
+            </div>
+            {/* add */}
+            <button
+              className="wl-add-btn"
+              onClick={() => setIsAdding((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: BLUE, color: "#fff", border: "none", borderRadius: 12,
+                padding: "8px 18px", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                boxShadow: "0 4px 16px rgba(59,130,246,0.28)", transition: "opacity 0.15s",
+                fontFamily: "'Inter',sans-serif",
+              }}
+            >
+              <Plus size={14} /> Add Ticker
+            </button>
+          </div>
         </div>
 
-        {/* Search & Add Stock */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-64">
-            <Search
-              size={15}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
-            />
+        {/* ── Add ticker panel ─────────────────────────────────────────────── */}
+        {isAdding && (
+          <form onSubmit={handleAdd} style={{
+            background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 14,
+            padding: "14px 20px", display: "flex", alignItems: "center",
+            gap: 10, marginBottom: 14, maxWidth: 520,
+          }}>
             <input
+              ref={addInputRef}
+              className="wl-fi"
               type="text"
-              placeholder="Filter watchlist..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#070b16] border border-[#162444] rounded-xl py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-all font-mono"
+              placeholder="NSE symbol (e.g. SBIN, WIPRO)..."
+              value={newSymbol}
+              onChange={(e) => setNewSymbol(e.target.value)}
+              style={{
+                flex: 1, background: BG_HDR, border: `1px solid ${BORDER}`, borderRadius: 9,
+                padding: "8px 12px", color: T1, fontSize: 12,
+                fontFamily: "'JetBrains Mono',monospace", transition: "border-color 0.15s",
+              }}
             />
-          </div>
+            <button type="submit" style={{
+              background: GREEN, color: "#fff", border: "none", borderRadius: 9,
+              padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+              fontFamily: "'Inter',sans-serif",
+            }}>Confirm</button>
+            <button type="button" onClick={() => setIsAdding(false)} style={{
+              background: "none", border: "none", color: T3, cursor: "pointer",
+              padding: 4, display: "flex", alignItems: "center",
+            }}><X size={14} /></button>
+          </form>
+        )}
 
-          <button
-            onClick={() => setIsAdding(!isAdding)}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/20"
-          >
-            <Plus size={15} /> Add Ticker
-          </button>
-        </div>
-      </div>
+        {/* ── Table card ──────────────────────────────────────────────────── */}
+        <div style={{
+          background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 18,
+          overflow: "hidden", boxShadow: "0 8px 60px rgba(0,0,0,0.55)",
+        }}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
 
-      {/* 2. Add Ticker Slide-Down Panel */}
-      {isAdding && (
-        <form
-          onSubmit={handleAddStock}
-          className="p-4 bg-[#0c1328] border border-[#1d2d54] rounded-xl flex items-center gap-3 max-w-lg transition-all"
-        >
-          <input
-            type="text"
-            placeholder="Enter NSE Symbol (e.g. SBIN, WIPRO)..."
-            value={newSymbol}
-            onChange={(e) => setNewSymbol(e.target.value)}
-            className="flex-1 bg-[#070b16] border border-[#162444] rounded-lg px-3 py-2 text-xs text-white font-mono placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
-            autoFocus
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition"
-          >
-            Confirm
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsAdding(false)}
-            className="px-3 py-2 text-xs text-slate-400 hover:text-white transition"
-          >
-            Cancel
-          </button>
-        </form>
-      )}
-
-      {/* 3. Watchlist Table */}
-      <div className="bg-[#0b1222] border border-[#162444] rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-[#162444] bg-[#070b16]/70 text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-                <th className="py-3.5 px-5">Symbol / Company</th>
-                <th className="py-3.5 px-4 text-right">LTP (₹)</th>
-                <th className="py-3.5 px-4 text-right">Change</th>
-                <th className="py-3.5 px-4 text-center">Day Trend</th>
-                <th className="py-3.5 px-4 text-right">24h Range</th>
-                <th className="py-3.5 px-4 text-right">Volume</th>
-                <th className="py-3.5 px-5 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#131d36] text-xs">
-              {filteredStocks.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="text-center py-10 text-slate-500 font-mono">
-                    No matching tickers found in watchlist.
-                  </td>
+              {/* thead */}
+              <thead>
+                <tr style={{ background: BG_HDR, borderBottom: `1px solid ${BORDER}` }}>
+                  {[
+                    { label: "Symbol / Company", align: "left"   },
+                    { label: "LTP (₹)",          align: "right"  },
+                    { label: "Change",           align: "right"  },
+                    { label: "Day Trend",        align: "center" },
+                    { label: "24H Range",        align: "right"  },
+                    { label: "Volume",           align: "right"  },
+                    { label: "Actions",          align: "center" },
+                  ].map((col) => (
+                    <th key={col.label} style={{
+                      padding: "14px 20px",
+                      fontFamily: "'JetBrains Mono',monospace",
+                      fontSize: 10, fontWeight: 700,
+                      letterSpacing: "0.12em", textTransform: "uppercase",
+                      color: T3, textAlign: col.align, whiteSpace: "nowrap",
+                    }}>
+                      {col.label}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                filteredStocks.map((stock) => {
-                  const isPositive = stock.change >= 0;
-                  return (
-                    <tr
-                      key={stock.symbol}
-                      className="hover:bg-[#0c1427]/80 transition-colors group"
-                    >
-                      {/* Ticker Name */}
-                      <td className="py-4 px-5">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleRemove(stock.symbol)}
-                            title="Remove from Watchlist"
-                            className="text-slate-600 hover:text-rose-400 transition"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                          <div>
-                            <div className="font-bold text-white font-mono tracking-wide text-sm">
-                              {stock.symbol.replace(".NS", "")}
-                            </div>
-                            <div className="text-[11px] text-slate-400 truncate max-w-[180px]">
-                              {stock.name}
+              </thead>
+
+              {/* tbody */}
+              <tbody>
+                {loading ? (
+                  [1,2,3,4,5,6].map((i) => <SkeletonRow key={i} />)
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={7} style={{ textAlign: "center", padding: "52px 20px", color: T3, fontFamily: "'JetBrains Mono',monospace", fontSize: 12 }}>
+                    No matching tickers in watchlist.
+                  </td></tr>
+                ) : (
+                  filtered.map(({ symbol, name }, idx) => {
+                    const d = marketData[symbol];
+                    const isPos = d ? d.change >= 0 : true;
+                    const cc = isPos ? GREEN : RED;
+
+                    return (
+                      <tr key={symbol} className="wl-row" style={{
+                        borderTop: idx === 0 ? "none" : `1px solid ${BORDER2}`,
+                        transition: "background 0.1s",
+                      }}>
+
+                        {/* Symbol / Company */}
+                        <td style={{ padding: "16px 20px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                            <button className="wl-del" onClick={() => handleRemove(symbol)} title="Remove"
+                              style={{ background: "none", border: "none", color: T3, cursor: "pointer", padding: 4, display: "flex", alignItems: "center", transition: "color 0.12s" }}>
+                              <Trash2 size={13} />
+                            </button>
+                            <div>
+                              <div style={{ color: T1, fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.04em" }}>
+                                {symbol.replace(/\.(NS|BO)$/, "")}
+                              </div>
+                              <div style={{ color: T2, fontSize: 11, marginTop: 2, maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {name}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Last Traded Price */}
-                      <td className="py-4 px-4 text-right font-mono font-bold text-slate-100 text-sm">
-                        ₹{stock.price.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
+                        {/* LTP */}
+                        <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "'JetBrains Mono',monospace", fontSize: 14, fontWeight: 700, color: T1, whiteSpace: "nowrap" }}>
+                          {d ? `₹${d.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span style={{ color: T3 }}>—</span>}
+                        </td>
 
-                      {/* Percentage & Rupee Change */}
-                      <td className="py-4 px-4 text-right font-mono">
-                        <div
-                          className={`inline-flex items-center gap-1 font-semibold ${
-                            isPositive ? "text-emerald-400" : "text-rose-400"
-                          }`}
-                        >
-                          {isPositive ? (
-                            <ArrowUpRight size={14} />
-                          ) : (
-                            <ArrowDownRight size={14} />
-                          )}
-                          <span>
-                            {isPositive ? "+" : ""}
-                            {stock.change.toFixed(2)} ({isPositive ? "+" : ""}
-                            {stock.pctChange}%)
-                          </span>
-                        </div>
-                      </td>
+                        {/* Change */}
+                        <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "'JetBrains Mono',monospace", fontSize: 12 }}>
+                          {d ? (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: cc, fontWeight: 600 }}>
+                              {isPos ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                              {isPos ? "+" : ""}{d.change.toFixed(2)} ({isPos ? "+" : ""}{d.pctChange.toFixed(1)}%)
+                            </span>
+                          ) : <span style={{ color: T3 }}>—</span>}
+                        </td>
 
-                      {/* Sparkline Visual */}
-                      <td className="py-4 px-4">
-                        <div className="flex justify-center">
-                          {renderSparkline(stock.sparkline, isPositive)}
-                        </div>
-                      </td>
+                        {/* Sparkline */}
+                        <td style={{ padding: "16px 20px", textAlign: "center" }}>
+                          <div style={{ display: "flex", justifyContent: "center" }}>
+                            <Sparkline data={d?.sparkline} positive={isPos} />
+                          </div>
+                        </td>
 
-                      {/* 24h High / Low Range */}
-                      <td className="py-4 px-4 text-right font-mono text-[11px]">
-                        <div className="text-slate-300">H: ₹{stock.dayHigh.toFixed(2)}</div>
-                        <div className="text-slate-500">L: ₹{stock.dayLow.toFixed(2)}</div>
-                      </td>
+                        {/* 24H Range */}
+                        <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, whiteSpace: "nowrap" }}>
+                          {d ? (
+                            <>
+                              <div style={{ color: T2 }}>H: ₹{d.dayHigh.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+                              <div style={{ color: T3, marginTop: 2 }}>L: ₹{d.dayLow.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+                            </>
+                          ) : <span style={{ color: T3 }}>—</span>}
+                        </td>
 
-                      {/* 24h Volume */}
-                      <td className="py-4 px-4 text-right font-mono text-slate-300 font-medium">
-                        {stock.volume}
-                      </td>
+                        {/* Volume */}
+                        <td style={{ padding: "16px 20px", textAlign: "right", fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 600, color: T2, whiteSpace: "nowrap" }}>
+                          {d?.volume || <span style={{ color: T3 }}>—</span>}
+                        </td>
 
-                      {/* Quick Execution Trigger */}
-                      <td className="py-4 px-5 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <Link
-                            to="/trading"
-                            className="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-[11px] font-bold font-mono transition"
-                          >
-                            TRADE
-                          </Link>
-                          <Link
-                            to="/market"
-                            className="p-1 text-slate-500 hover:text-blue-400 transition"
-                            title="Open in Chart"
-                          >
-                            <ExternalLink size={15} />
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        {/* Actions */}
+                        <td style={{ padding: "16px 20px", textAlign: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                            <Link to="/trading" className="wl-trade" style={{
+                              display: "inline-block", padding: "5px 14px", borderRadius: 20,
+                              background: "rgba(16,185,129,0.11)", border: "1px solid rgba(16,185,129,0.28)",
+                              color: GREEN, fontFamily: "'JetBrains Mono',monospace",
+                              fontSize: 10.5, fontWeight: 700, textDecoration: "none",
+                              letterSpacing: "0.06em", transition: "background 0.12s", whiteSpace: "nowrap",
+                            }}>
+                              TRADE
+                            </Link>
+                            <Link to="/market" className="wl-ext" title="Open chart" style={{ color: T3, display: "flex", alignItems: "center", transition: "color 0.12s" }}>
+                              <ExternalLink size={13} />
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* footer */}
+          <div style={{ borderTop: `1px solid ${BORDER2}`, padding: "11px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ color: T3, fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>
+              {filtered.length} of {symbols.length} ticker{symbols.length !== 1 ? "s" : ""} displayed
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, color: GREEN, fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: GREEN, display: "inline-block", boxShadow: `0 0 6px ${GREEN}` }} />
+              NSE · Live Data
+            </span>
+          </div>
         </div>
+
       </div>
     </div>
   );
-}
+}

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, X, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { runPaperTrade } from "@/services/paperTradingService";
@@ -27,7 +28,18 @@ export default function Strategy() {
   // ==========================================
 
   const [name, setName] = useState("");
-  const [symbol, setSymbol] = useState("TCS.NS");
+  const [symbol, setSymbol] = useState("");
+
+  // ==========================================
+  // Stock Search
+  // ==========================================
+
+  const [stockQuery, setStockQuery] = useState("");
+  const [stockResults, setStockResults] = useState([]);
+  const [stockSearchOpen, setStockSearchOpen] = useState(false);
+  const [stockSearchLoading, setStockSearchLoading] = useState(false);
+  const stockSearchRef = useRef(null);
+  const stockDebounceRef = useRef(null);
 
   const [assetType, setAssetType] =
     useState("STOCK");
@@ -149,6 +161,64 @@ export default function Strategy() {
 
   useEffect(() => {
     loadStrategies();
+  }, []);
+
+  // ==========================================
+  // Stock Search Logic
+  // ==========================================
+
+  async function fetchStockResults(q) {
+    if (!q || q.trim().length === 0) {
+      setStockResults([]);
+      return;
+    }
+    try {
+      setStockSearchLoading(true);
+      const res = await fetch(
+        `http://127.0.0.1:8000/market/search?q=${encodeURIComponent(q)}&limit=6`
+      );
+      const data = await res.json();
+      setStockResults(data.results || []);
+    } catch {
+      setStockResults([]);
+    } finally {
+      setStockSearchLoading(false);
+    }
+  }
+
+  function handleStockQueryChange(e) {
+    const val = e.target.value;
+    setStockQuery(val);
+    setStockSearchOpen(true);
+    clearTimeout(stockDebounceRef.current);
+    stockDebounceRef.current = setTimeout(() => {
+      fetchStockResults(val);
+    }, 280);
+  }
+
+  function handleStockSelect(result) {
+    setSymbol(result.symbol.toUpperCase());
+    setStockQuery(result.symbol.toUpperCase());
+    setStockSearchOpen(false);
+    setStockResults([]);
+  }
+
+  function handleStockClear() {
+    setStockQuery("");
+    setSymbol("");
+    setStockResults([]);
+    setStockSearchOpen(false);
+  }
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (stockSearchRef.current && !stockSearchRef.current.contains(e.target)) {
+        setStockSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // ==========================================
@@ -662,28 +732,205 @@ export default function Strategy() {
                 </select>
               </div>
 
-              {/* Symbol */}
-              <div>
+              {/* Symbol / Stock Search */}
+              <div ref={stockSearchRef} style={{ position: 'relative' }}>
                 <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider"
                   style={{ color: 'var(--qn-text-3)', fontFamily: "'JetBrains Mono', monospace" }}>
                   Symbol / Stock
                 </label>
-                <input
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  placeholder="TCS.NS"
-                  className="w-full rounded-xl px-4 py-2.5 text-sm transition-all"
+
+                {/* Input wrapper */}
+                <div
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
                     background: '#f5f7ff',
-                    border: '1px solid rgba(79,70,229,0.16)',
-                    color: 'var(--qn-text-1)',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    outline: 'none',
-                    letterSpacing: '0.04em',
+                    border: stockSearchOpen
+                      ? '1.5px solid rgba(79,70,229,0.55)'
+                      : '1px solid rgba(79,70,229,0.16)',
+                    borderRadius: '14px',
+                    padding: '0 12px',
+                    gap: '8px',
+                    boxShadow: stockSearchOpen ? '0 0 0 3px rgba(79,70,229,0.08)' : 'none',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
                   }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.50)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.08)'; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'rgba(79,70,229,0.16)'; e.currentTarget.style.boxShadow = 'none'; }}
-                />
+                >
+                  <Search size={14} style={{ color: 'rgba(79,70,229,0.55)', flexShrink: 0 }} />
+                  <input
+                    value={stockQuery}
+                    onChange={handleStockQueryChange}
+                    onFocus={() => {
+                      setStockSearchOpen(true);
+                      if (stockQuery.trim().length > 0) fetchStockResults(stockQuery);
+                    }}
+                    placeholder="Search by company name or symbol"
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      color: 'var(--qn-text-1)',
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: '13.5px',
+                      padding: '9px 0',
+                      minWidth: 0,
+                    }}
+                  />
+                  {stockQuery && (
+                    <button
+                      type="button"
+                      onClick={handleStockClear}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '2px',
+                        color: 'rgba(79,70,229,0.45)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                  <ChevronDown
+                    size={13}
+                    style={{
+                      color: 'rgba(79,70,229,0.40)',
+                      flexShrink: 0,
+                      transform: stockSearchOpen ? 'rotate(180deg)' : 'none',
+                      transition: 'transform 0.18s',
+                    }}
+                  />
+                </div>
+
+                {/* Dropdown */}
+                {stockSearchOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      left: 0,
+                      right: 0,
+                      background: '#fff',
+                      border: '1px solid rgba(79,70,229,0.14)',
+                      borderRadius: '14px',
+                      boxShadow: '0 8px 32px rgba(79,70,229,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+                      zIndex: 9999,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {/* Placeholder hint */}
+                    {stockResults.length === 0 && !stockSearchLoading && (
+                      <div style={{
+                        padding: '14px 16px',
+                        fontSize: '12.5px',
+                        color: 'rgba(79,70,229,0.45)',
+                        fontFamily: "'Inter', sans-serif",
+                        fontStyle: 'italic',
+                      }}>
+                        {stockQuery.trim()
+                          ? 'No Indian stocks found'
+                          : 'Search by company name or symbol'}
+                      </div>
+                    )}
+
+                    {/* Loading */}
+                    {stockSearchLoading && (
+                      <div style={{
+                        padding: '14px 16px',
+                        fontSize: '12.5px',
+                        color: 'rgba(79,70,229,0.45)',
+                        fontFamily: "'Inter', sans-serif",
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}>
+                        <span style={{
+                          width: 12, height: 12,
+                          borderRadius: '50%',
+                          border: '2px solid rgba(79,70,229,0.25)',
+                          borderTopColor: '#4f46e5',
+                          display: 'inline-block',
+                          animation: 'spin 0.7s linear infinite',
+                        }} />
+                        Searching...
+                      </div>
+                    )}
+
+                    {/* Results */}
+                    {stockResults.map((result, idx) => (
+                      <button
+                        key={result.symbol + idx}
+                        type="button"
+                        onMouseDown={() => handleStockSelect(result)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          width: '100%',
+                          padding: '11px 16px',
+                          background: 'none',
+                          border: 'none',
+                          borderTop: idx === 0 ? 'none' : '1px solid rgba(79,70,229,0.06)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(79,70,229,0.04)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                      >
+                        {/* Left: name + symbol */}
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{
+                            fontFamily: "'Inter', sans-serif",
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            color: '#1a1a2e',
+                            margin: 0,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: '210px',
+                          }}>
+                            {(result.short_name || result.name || result.symbol).toUpperCase()}
+                          </p>
+                          <p style={{
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: '11px',
+                            color: 'rgba(79,70,229,0.55)',
+                            margin: '2px 0 0',
+                          }}>
+                            {result.symbol.toUpperCase()}
+                          </p>
+                        </div>
+
+                        {/* Right: exchange + type */}
+                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '10px' }}>
+                          <p style={{
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: '#6b7280',
+                            margin: 0,
+                          }}>
+                            {result.exchange_display || 'NSE'}
+                          </p>
+                          <p style={{
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: '10px',
+                            color: '#9ca3af',
+                            margin: '2px 0 0',
+                            textTransform: 'uppercase',
+                          }}>
+                            {result.quote_type || 'EQUITY'}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Trading Style */}
