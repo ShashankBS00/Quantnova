@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import CandlestickChart from "@/components/charts/CandlestickChart";
 import StockSearch from "@/components/market/StockSearch";
 import { BarChart3, Activity, Layers } from "lucide-react";
@@ -13,10 +14,31 @@ const timeframes = [
   { label: "5Y", period: "5y" },
 ];
 
-export default function MarketChart({ symbol = "RELIANCE.NS", onSymbolChange }) {
+export default function MarketChart({ symbol: propSymbol, onSymbolChange }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSymbol = searchParams.get("symbol");
+  const [symbol, setSymbol] = useState(urlSymbol || propSymbol || "RELIANCE.NS");
   const [period, setPeriod] = useState("1mo");
 
-  const cleanSymbol = symbol.replace(".NS", "");
+  useEffect(() => {
+    if (urlSymbol && urlSymbol !== symbol) {
+      setSymbol(urlSymbol);
+    }
+  }, [urlSymbol]);
+
+  const handleSymbolChange = (newSymbol) => {
+    let formatted = newSymbol.trim().toUpperCase();
+    if (!formatted.includes(".")) {
+      formatted += ".NS";
+    }
+    setSymbol(formatted);
+    setSearchParams({ symbol: formatted });
+    if (onSymbolChange) {
+      onSymbolChange(formatted);
+    }
+  };
+
+  const cleanSymbol = symbol.replace(/\.(NS|BO)$/i, "");
 
   return (
     <div className="bg-[#0b1222] border border-[#162444] rounded-2xl p-5 shadow-xl select-none">
@@ -47,7 +69,7 @@ export default function MarketChart({ symbol = "RELIANCE.NS", onSymbolChange }) 
 
           {/* Search Box */}
           <div className="w-full lg:w-[380px]">
-            <StockSearch onSearch={onSymbolChange} />
+            <StockSearch onSearch={handleSymbolChange} />
           </div>
         </div>
 

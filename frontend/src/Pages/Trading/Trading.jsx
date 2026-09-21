@@ -58,6 +58,7 @@ export default function Trading() {
   const [strategies, setStrategies] = useState([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState("");
   const [strategyResult, setStrategyResult] = useState(null);
+  const [activeTab, setActiveTab] = useState("holdings");
 
   async function loadMarketPrice() {
     if (!symbol.trim()) return;
@@ -263,13 +264,237 @@ export default function Trading() {
         ["Action", strategyResult.action, "var(--qn-indigo)"], ["Price", money(strategyResult.price), "var(--qn-text-1)"], ["Fast EMA", Number(strategyResult.indicators?.fast_ema || 0).toFixed(2), "var(--qn-text-1)"], ["Slow SMA", Number(strategyResult.indicators?.slow_sma || 0).toFixed(2), "var(--qn-text-1)"]
       ].map(([label, value, color]) => <div key={label} className="rounded-xl p-4" style={{ background: "var(--qn-surface-2)" }}><p className="text-[10px] font-bold uppercase tracking-[0.1em]" style={labelStyle}>{label}</p><p className="mt-2 text-base font-extrabold" style={{ color, fontFamily: "'JetBrains Mono', monospace" }}>{value || "—"}</p></div>)}</div></section>}
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <article className="qn-card min-w-0 p-5 sm:p-6"><PanelTitle icon={WalletCards} color="var(--qn-cyan)" tint="rgba(8, 145, 178, 0.09)" title="Current holdings" description="Open positions in your paper account." />
-          {!account?.holdings || Object.keys(account.holdings).length === 0 ? <p className="py-8 text-center text-sm" style={{ color: "var(--qn-text-3)" }}>No holdings yet.</p> : <div className="space-y-2">{Object.entries(account.holdings).map(([stock, holding]) => <div key={stock} className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: "var(--qn-surface-2)" }}><div><span className="text-sm font-bold" style={{ ...monoStyle, color: "var(--qn-indigo)" }}>{stock}</span><p className="mt-0.5 text-xs" style={{ color: "var(--qn-text-3)" }}>{holding.quantity} shares</p></div><div className="text-right"><p className="text-sm font-bold" style={monoStyle}>{money(holding.average_price)}</p><p className="mt-0.5 text-[10px] uppercase tracking-wide" style={labelStyle}>Average price</p></div></div>)}</div>}
-        </article>
-        <article className="qn-card min-w-0 overflow-hidden"><div className="p-5 pb-0 sm:p-6 sm:pb-0"><PanelTitle icon={ChartNoAxesCombined} color="var(--qn-indigo)" tint="rgba(79, 70, 229, 0.09)" title="Order history" description="Your completed and pending paper orders." /></div>
-          {!account?.orders?.length ? <p className="px-6 py-10 text-center text-sm" style={{ color: "var(--qn-text-3)" }}>No orders yet.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left"><thead style={{ background: "var(--qn-surface-2)" }}><tr>{["Instrument", "Side", "Total", "P&L"].map((heading) => <th key={heading} className="px-5 py-3 text-[10px] font-bold uppercase tracking-[0.1em]" style={labelStyle}>{heading}</th>)}</tr></thead><tbody>{account.orders.map((order, index) => { const pnl = Number(order.realized_pnl || 0); const orderBuy = order.side === "BUY"; return <tr key={`${order.symbol}-${index}`} style={{ borderTop: "1px solid var(--qn-border)" }}><td className="px-5 py-4"><p className="text-sm font-bold" style={monoStyle}>{order.symbol}</p><p className="mt-1 text-xs" style={{ color: "var(--qn-text-3)" }}>{order.quantity} × {money(order.price)} · {order.status}</p></td><td className="px-5 py-4"><span className="qn-badge" style={{ background: orderBuy ? "var(--qn-bull-dim)" : "var(--qn-bear-dim)", color: orderBuy ? "var(--qn-bull)" : "var(--qn-bear)" }}>{order.side}</span></td><td className="px-5 py-4 text-sm font-bold" style={monoStyle}>{money(order.total)}</td><td className="px-5 py-4 text-sm font-bold" style={{ color: pnl >= 0 ? "var(--qn-bull)" : "var(--qn-bear)", fontFamily: "'JetBrains Mono', monospace" }}>{pnl >= 0 ? "+" : "-"}{money(Math.abs(pnl))}</td></tr>; })}</tbody></table></div>}
-        </article>
+      {/* ── Holdings + Order History tabs ──────────────────────────── */}
+      <section className="qn-card overflow-hidden">
+
+        {/* Tab bar */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            borderBottom: "1px solid var(--qn-border)",
+          }}
+        >
+          {[
+            { id: "holdings", label: "Current Holdings", count: account?.holdings ? Object.keys(account.holdings).length : 0, icon: WalletCards },
+            { id: "orders",   label: "Order History",    count: account?.orders?.length ?? 0,                                    icon: ChartNoAxesCombined },
+          ].map(({ id, label, count, icon: Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "16px 20px",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: active ? "2px solid var(--qn-indigo)" : "2px solid transparent",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  marginBottom: -1,
+                  color: active ? "var(--qn-indigo)" : "var(--qn-text-3)",
+                }}
+              >
+                <Icon size={15} />
+                <span
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 13,
+                    fontWeight: active ? 700 : 500,
+                    color: active ? "var(--qn-indigo)" : "var(--qn-text-2)",
+                    transition: "color 0.15s",
+                  }}
+                >
+                  {label} ({count})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Current Holdings panel ────────────────────────────────── */}
+        {activeTab === "holdings" && (
+          <div style={{ height: 360, overflowY: "auto", padding: "20px 24px" }}>
+            {!account?.holdings || Object.keys(account.holdings).length === 0 ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                <p style={{ color: "var(--qn-text-3)", fontSize: 14 }}>No holdings yet.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {Object.entries(account.holdings).map(([stock, holding]) => (
+                  <div
+                    key={stock}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderRadius: 14,
+                      padding: "14px 18px",
+                      background: "var(--qn-surface-2)",
+                      border: "1px solid var(--qn-border)",
+                      transition: "border-color 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(79,70,229,0.28)"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = "var(--qn-border)"}
+                  >
+                    <div>
+                      <span
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "var(--qn-indigo)",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        {stock}
+                      </span>
+                      <p style={{ marginTop: 4, fontSize: 12, color: "var(--qn-text-3)", fontFamily: "'Inter', sans-serif" }}>
+                        {holding.quantity} shares
+                      </p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "var(--qn-text-1)",
+                        }}
+                      >
+                        {money(holding.average_price)}
+                      </p>
+                      <p
+                        style={{
+                          marginTop: 3,
+                          fontSize: 10,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          color: "var(--qn-text-3)",
+                          fontFamily: "'JetBrains Mono', monospace",
+                        }}
+                      >
+                        Average Price
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Order History panel ───────────────────────────────────── */}
+        {activeTab === "orders" && (
+          <div style={{ height: 360, overflowY: "auto" }}>
+            {!account?.orders?.length ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                <p style={{ color: "var(--qn-text-3)", fontSize: 14 }}>No orders yet.</p>
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: 540 }}>
+                <thead
+                  style={{
+                    position: "sticky",
+                    top: 0,
+                    background: "var(--qn-surface-2)",
+                    zIndex: 1,
+                  }}
+                >
+                  <tr>
+                    {["Instrument", "Side", "Total", "P&L"].map((h) => (
+                      <th
+                        key={h}
+                        style={{
+                          padding: "12px 20px",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.10em",
+                          color: "var(--qn-text-3)",
+                          fontFamily: "'JetBrains Mono', monospace",
+                          borderBottom: "1px solid var(--qn-border)",
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {account.orders.map((order, idx) => {
+                    const pnl = Number(order.realized_pnl || 0);
+                    const isBuyOrder = order.side === "BUY";
+                    return (
+                      <tr
+                        key={`${order.symbol}-${idx}`}
+                        style={{
+                          borderTop: idx === 0 ? "none" : "1px solid var(--qn-border)",
+                          transition: "background 0.1s",
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = "var(--qn-surface-2)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        {/* Instrument */}
+                        <td style={{ padding: "14px 20px" }}>
+                          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: "var(--qn-text-1)" }}>
+                            {order.symbol}
+                          </p>
+                          <p style={{ marginTop: 3, fontSize: 11, color: "var(--qn-text-3)", fontFamily: "'Inter', sans-serif" }}>
+                            {order.quantity} × {money(order.price)} · {order.status}
+                          </p>
+                        </td>
+
+                        {/* Side badge */}
+                        <td style={{ padding: "14px 20px" }}>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              padding: "3px 10px",
+                              borderRadius: 6,
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              fontFamily: "'JetBrains Mono', monospace",
+                              letterSpacing: "0.06em",
+                              background: isBuyOrder ? "var(--qn-bull-dim)" : "var(--qn-bear-dim)",
+                              color: isBuyOrder ? "var(--qn-bull)" : "var(--qn-bear)",
+                            }}
+                          >
+                            {order.side}
+                          </span>
+                        </td>
+
+                        {/* Total */}
+                        <td style={{ padding: "14px 20px", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: "var(--qn-text-1)" }}>
+                          {money(order.total)}
+                        </td>
+
+                        {/* P&L */}
+                        <td
+                          style={{
+                            padding: "14px 20px",
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: pnl >= 0 ? "var(--qn-bull)" : "var(--qn-bear)",
+                          }}
+                        >
+                          {pnl >= 0 ? "+" : "-"}{money(Math.abs(pnl))}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
       </section>
 
       {showConfirmation && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1f3c]/20 p-4"><div className="w-full max-w-md rounded-2xl p-6 shadow-2xl animate-fade-up" style={{ background: "var(--qn-surface)", border: "1px solid var(--qn-border-glow)" }}><div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...labelStyle, color: actionColor }}>Order review</p><h2 className="mt-2 text-xl font-bold" style={{ color: "var(--qn-text-1)", fontFamily: "'Space Grotesk', sans-serif" }}>Confirm {side} order</h2></div><span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: actionTint, color: actionColor }}>{isBuy ? <ArrowUpRight size={19} /> : <ArrowDownRight size={19} />}</span></div><div className="mt-6 space-y-3 rounded-xl p-4" style={{ background: "var(--qn-surface-2)" }}>{[["Symbol", symbol], ["Quantity", quantity], ["Price", money(price)], ["Estimated total", money(estimatedTotal)]].map(([label, value], index) => <div key={label} className={`flex justify-between ${index === 3 ? "border-t pt-3" : ""}`} style={index === 3 ? { borderColor: "var(--qn-border)" } : undefined}><span className="text-sm" style={{ color: "var(--qn-text-2)" }}>{label}</span><span className="text-sm font-bold" style={{ ...monoStyle, color: index === 3 ? actionColor : "var(--qn-text-1)" }}>{value}</span></div>)}</div><div className="mt-6 flex gap-3"><button type="button" onClick={() => setShowConfirmation(false)} disabled={loading} className="qn-btn-ghost flex-1 rounded-xl py-3 disabled:opacity-50">Cancel</button><button type="button" onClick={handleOrder} disabled={loading} className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white disabled:opacity-50" style={{ background: actionColor }}>{loading && <LoaderCircle size={15} className="animate-spin" />}{loading ? "Processing" : `Confirm ${side}`}</button></div></div></div>}
