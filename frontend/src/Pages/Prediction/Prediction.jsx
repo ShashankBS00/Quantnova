@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Activity,
   Brain,
+  CheckCircle2,
   ChevronDown,
   Clock,
   Loader2,
@@ -25,6 +26,7 @@ import {
   searchStocks,
   getPredictionHistory,
   getPredictionPerformance,
+  verifyPredictionHistory,
 } from "../../services/predictionService";
 
 // ============================================================
@@ -149,6 +151,9 @@ const [predictionPerformance, setPredictionPerformance] =
   useState(null);
 
 const [historyLoading, setHistoryLoading] =
+  useState(false);
+
+const [verifyLoading, setVerifyLoading] =
   useState(false);
 
 const [historyError, setHistoryError] =
@@ -526,7 +531,7 @@ const fetchPredictionHistory =
 
 
   // ==========================================================
-  // PREDICTION HISTORY LOAD
+  // PREDICTION HISTORY LOAD & VERIFY
   // ==========================================================
 
   useEffect(() => {
@@ -534,6 +539,24 @@ const fetchPredictionHistory =
     fetchPredictionHistory();
 
   }, [fetchPredictionHistory]);
+
+  const handleVerifyPredictions = async () => {
+    if (!selectedStock?.symbol) return;
+    setVerifyLoading(true);
+    setHistoryError("");
+
+    try {
+      await verifyPredictionHistory(selectedStock.symbol, timeframe);
+      await fetchPredictionHistory();
+    } catch (error) {
+      console.error("Verification error:", error);
+      setHistoryError(
+        error.message || "Failed to verify prediction history."
+      );
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
 
 
 
@@ -1742,6 +1765,8 @@ const fetchPredictionHistory =
           selectedStock={selectedStock}
           fetchPredictionHistory={fetchPredictionHistory}
           historyLoading={historyLoading}
+          verifyLoading={verifyLoading}
+          handleVerifyPredictions={handleVerifyPredictions}
           predictionPerformance={predictionPerformance}
           predictionHistory={predictionHistory}
           historyError={historyError}
@@ -1858,6 +1883,8 @@ const PredictionHistory = ({
   selectedStock,
   fetchPredictionHistory,
   historyLoading,
+  verifyLoading,
+  handleVerifyPredictions,
   predictionPerformance,
   predictionHistory,
   historyError,
@@ -1925,15 +1952,30 @@ const PredictionHistory = ({
 
     {/* HEADER */}
 
-    <div className="px-6 py-5 border-b border-slate-200">
+    <div className="px-6 py-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
-      <h2 className="text-xl font-bold text-slate-900">
-        Prediction History
-      </h2>
+      <div>
+        <h2 className="text-xl font-bold text-slate-900">
+          Prediction History
+        </h2>
 
-      <p className="text-sm text-slate-500 mt-1">
-        Historical AI predictions and their verified outcomes
-      </p>
+        <p className="text-sm text-slate-500 mt-1">
+          Historical AI predictions and their verified outcomes
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleVerifyPredictions}
+          disabled={verifyLoading || historyLoading}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95"
+          title="Verify pending predictions against latest market closing data"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${verifyLoading ? "animate-spin" : ""}`} />
+          {verifyLoading ? "Verifying..." : "Verify Outcomes"}
+        </button>
+      </div>
 
     </div>
 
@@ -2191,19 +2233,22 @@ const PredictionHistory = ({
 
                       {result === true ? (
 
-                        <span className="inline-flex px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
-                          ✓ Correct
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Correct
                         </span>
 
                       ) : result === false ? (
 
-                        <span className="inline-flex px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold">
-                          ✕ Wrong
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold border border-red-200">
+                          <X className="w-3.5 h-3.5 text-red-600" />
+                          Wrong
                         </span>
 
                       ) : (
 
-                        <span className="inline-flex px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold border border-slate-200">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
                           Pending
                         </span>
 

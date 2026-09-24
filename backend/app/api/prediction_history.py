@@ -37,10 +37,21 @@ def prediction_history(
     symbol: str | None = None,
     timeframe: str | None = None,
     limit: int = 50,
+    auto_verify: bool = True,
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
 
     try:
+
+        if auto_verify:
+            try:
+                verify_predictions(
+                    db,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                )
+            except Exception as verify_err:
+                print(f"Auto-verify non-fatal error: {verify_err}")
 
         records = (
             get_prediction_history(
@@ -171,7 +182,7 @@ def prediction_history(
 @router.post("/history/verify")
 def verify_prediction_history(
     symbol: str | None = None,
-    timeframe: str = "1d",
+    timeframe: str | None = None,
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
 
@@ -209,10 +220,21 @@ def verify_prediction_history(
 def prediction_performance(
     symbol: str | None = None,
     timeframe: str | None = None,
+    auto_verify: bool = True,
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
 
     try:
+
+        if auto_verify:
+            try:
+                verify_predictions(
+                    db,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                )
+            except Exception as verify_err:
+                print(f"Auto-verify non-fatal error in /performance: {verify_err}")
 
         performance = (
             get_prediction_performance(

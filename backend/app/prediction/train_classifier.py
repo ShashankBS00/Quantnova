@@ -37,6 +37,7 @@ from app.prediction.feature_engineering import (
     FEATURE_COLUMNS,
     prepare_training_data,
 )
+
 from app.prediction.model_utils import save_model
 
 
@@ -51,6 +52,7 @@ DEFAULT_HORIZON = 1
 # Neutral zone.
 #
 # Example:
+#
 #   +0.5% or more  -> UP
 #   -0.5% or less  -> DOWN
 #   between them   -> HOLD
@@ -59,22 +61,50 @@ DEFAULT_THRESHOLD = 0.005
 
 
 # ============================================================
+# TIMEFRAME CONFIGURATION
+# ============================================================
+
+# Minimum number of usable rows required AFTER
+# feature engineering and NaN removal.
+#
+# Weekly and monthly datasets naturally contain
+# fewer observations than daily datasets.
+MINIMUM_ROWS_BY_TIMEFRAME = {
+    "1d": 500,
+    "1wk": 400,
+    "1mo": 150,
+}
+
+
+# ============================================================
 # DATA HELPERS
 # ============================================================
 
-def flatten_yfinance_columns(df: pd.DataFrame) -> pd.DataFrame:
+def flatten_yfinance_columns(
+    df: pd.DataFrame,
+) -> pd.DataFrame:
     """
-    Flatten MultiIndex columns returned by some yfinance versions.
+    Flatten MultiIndex columns returned by
+    some yfinance versions.
     """
 
-    if isinstance(df.columns, pd.MultiIndex):
+    if isinstance(
+        df.columns,
+        pd.MultiIndex,
+    ):
+
         df.columns = [
             str(column[0]).lower()
-            if isinstance(column, tuple)
+            if isinstance(
+                column,
+                tuple,
+            )
             else str(column).lower()
             for column in df.columns
         ]
+
     else:
+
         df.columns = [
             str(column).lower()
             for column in df.columns
@@ -95,6 +125,18 @@ def download_market_data(
     print()
     print("Downloading market data...")
 
+    print(
+        f"Symbol    : {symbol}"
+    )
+
+    print(
+        f"Timeframe : {timeframe}"
+    )
+
+    print(
+        f"Period    : {period}"
+    )
+
     df = yf.download(
         symbol,
         period=period,
@@ -104,12 +146,16 @@ def download_market_data(
     )
 
     if df is None or df.empty:
+
         raise ValueError(
-            f"No market data found for {symbol} "
-            f"with timeframe {timeframe}."
+            f"No market data found for "
+            f"{symbol} with timeframe "
+            f"{timeframe} and period {period}."
         )
 
-    df = flatten_yfinance_columns(df)
+    df = flatten_yfinance_columns(
+        df
+    )
 
     required_columns = [
         "open",
@@ -126,14 +172,20 @@ def download_market_data(
     ]
 
     if missing_columns:
+
         raise ValueError(
             "Missing required market columns: "
-            + ", ".join(missing_columns)
+            + ", ".join(
+                missing_columns
+            )
         )
 
-    df = df[required_columns].copy()
+    df = df[
+        required_columns
+    ].copy()
 
     for column in required_columns:
+
         df[column] = pd.to_numeric(
             df[column],
             errors="coerce",
@@ -142,9 +194,15 @@ def download_market_data(
     df = df.dropna()
 
     if df.empty:
+
         raise ValueError(
-            f"Market data became empty after cleaning for {symbol}."
+            f"Market data became empty "
+            f"after cleaning for {symbol}."
         )
+
+    print(
+        f"Downloaded rows: {len(df)}"
+    )
 
     return df
 
@@ -177,19 +235,30 @@ def create_direction_target(
         dtype="float64",
     )
 
-    target[future_returns > threshold] = 2
-    target[future_returns < -threshold] = 0
+    target[
+        future_returns > threshold
+    ] = 2
 
-    # Everything inside the neutral zone becomes HOLD.
+    target[
+        future_returns < -threshold
+    ] = 0
+
+    # Everything inside the neutral zone
+    # becomes HOLD.
+
     neutral_mask = (
         future_returns >= -threshold
     ) & (
         future_returns <= threshold
     )
 
-    target[neutral_mask] = 1
+    target[
+        neutral_mask
+    ] = 1
 
-    return target.astype("int64")
+    return target.astype(
+        "int64"
+    )
 
 
 # ============================================================
@@ -207,32 +276,83 @@ def train_classifier(
     Train a 3-class XGBoost direction classifier.
     """
 
-    symbol = str(symbol).strip().upper()
-    timeframe = str(timeframe).strip().lower()
+    symbol = (
+        str(symbol)
+        .strip()
+        .upper()
+    )
+
+    timeframe = (
+        str(timeframe)
+        .strip()
+        .lower()
+    )
 
     if not symbol:
-        raise ValueError("Symbol cannot be empty.")
+
+        raise ValueError(
+            "Symbol cannot be empty."
+        )
 
     if horizon < 1:
+
         raise ValueError(
             "Horizon must be at least 1."
         )
 
     if threshold <= 0:
+
         raise ValueError(
             "Threshold must be greater than 0."
         )
 
+    # --------------------------------------------------------
+    # Validate timeframe
+    # --------------------------------------------------------
+
+    supported_timeframes = {
+        "1d",
+        "1wk",
+        "1mo",
+    }
+
+    if timeframe not in supported_timeframes:
+
+        raise ValueError(
+            f"Unsupported training timeframe: "
+            f"{timeframe}. "
+            f"Supported timeframes: "
+            f"{', '.join(sorted(supported_timeframes))}"
+        )
+
+    # --------------------------------------------------------
+    # Print configuration
+    # --------------------------------------------------------
+
+    print()
     print("=" * 60)
     print("QuantNova AI Direction Classifier")
     print("=" * 60)
 
-    print(f"Symbol    : {symbol}")
-    print(f"Timeframe : {timeframe}")
-    print(f"Period    : {period}")
-    print(f"Horizon   : {horizon}")
     print(
-        f"Threshold : {threshold * 100:.2f}%"
+        f"Symbol    : {symbol}"
+    )
+
+    print(
+        f"Timeframe : {timeframe}"
+    )
+
+    print(
+        f"Period    : {period}"
+    )
+
+    print(
+        f"Horizon   : {horizon}"
+    )
+
+    print(
+        f"Threshold : "
+        f"{threshold * 100:.2f}%"
     )
 
     # --------------------------------------------------------
@@ -252,15 +372,24 @@ def train_classifier(
     print()
     print("Creating features...")
 
-    X, y_return, feature_data = prepare_training_data(
-        df,
-        horizon=horizon,
+    X, y_return, feature_data = (
+        prepare_training_data(
+            df,
+            horizon=horizon,
+        )
     )
 
     if X.empty or y_return.empty:
+
         raise ValueError(
-            "Feature engineering produced no training data."
+            "Feature engineering produced "
+            "no training data."
         )
+
+    print(
+        f"Rows after feature engineering: "
+        f"{len(X)}"
+    )
 
     # --------------------------------------------------------
     # CREATE 3-CLASS TARGET
@@ -271,49 +400,128 @@ def train_classifier(
         threshold=threshold,
     )
 
-    # Make sure X and y have matching indexes.
-    common_index = X.index.intersection(y.index)
+    # --------------------------------------------------------
+    # ALIGN X AND Y
+    # --------------------------------------------------------
 
-    X = X.loc[common_index].copy()
-    y = y.loc[common_index].copy()
+    common_index = X.index.intersection(
+        y.index
+    )
 
-    # Remove invalid values.
+    X = X.loc[
+        common_index
+    ].copy()
+
+    y = y.loc[
+        common_index
+    ].copy()
+
+    # --------------------------------------------------------
+    # REMOVE INVALID VALUES
+    # --------------------------------------------------------
+
     valid_mask = (
         X.notna().all(axis=1)
         & y.notna()
     )
 
-    X = X.loc[valid_mask]
-    y = y.loc[valid_mask]
+    X = X.loc[
+        valid_mask
+    ].copy()
+
+    y = y.loc[
+        valid_mask
+    ].copy()
+
+    print(
+        f"Usable training rows: "
+        f"{len(X)}"
+    )
 
     # --------------------------------------------------------
-    # VALIDATE DATA SIZE
+    # TIMEFRAME-AWARE DATA VALIDATION
     # --------------------------------------------------------
 
-    minimum_rows = 500
+    minimum_rows = (
+        MINIMUM_ROWS_BY_TIMEFRAME.get(
+            timeframe,
+            500,
+        )
+    )
+
+    print()
+    print(
+        f"Minimum required rows "
+        f"for {timeframe}: "
+        f"{minimum_rows}"
+    )
+
+    print(
+        f"Available usable rows: "
+        f"{len(X)}"
+    )
 
     if len(X) < minimum_rows:
+
         raise ValueError(
-            f"Not enough training data. "
-            f"Required at least {minimum_rows} rows, "
-            f"but only {len(X)} are available."
+            f"Not enough training data "
+            f"for {timeframe}. "
+            f"Required at least "
+            f"{minimum_rows} rows, "
+            f"but only {len(X)} "
+            f"are available. "
+            f"Use a longer historical "
+            f"training period."
         )
 
     # --------------------------------------------------------
     # TIME-SERIES TRAIN / TEST SPLIT
     # --------------------------------------------------------
 
-    split_index = int(len(X) * 0.80)
+    split_index = int(
+        len(X) * 0.80
+    )
 
-    X_train = X.iloc[:split_index].copy()
-    X_test = X.iloc[split_index:].copy()
+    if split_index <= 0:
 
-    y_train = y.iloc[:split_index].copy()
-    y_test = y.iloc[split_index:].copy()
+        raise ValueError(
+            "Training split produced "
+            "no training rows."
+        )
+
+    if split_index >= len(X):
+
+        raise ValueError(
+            "Training split produced "
+            "no testing rows."
+        )
+
+    X_train = X.iloc[
+        :split_index
+    ].copy()
+
+    X_test = X.iloc[
+        split_index:
+    ].copy()
+
+    y_train = y.iloc[
+        :split_index
+    ].copy()
+
+    y_test = y.iloc[
+        split_index:
+    ].copy()
 
     print()
-    print(f"Training rows : {len(X_train)}")
-    print(f"Testing rows  : {len(X_test)}")
+    print(
+        f"Training rows : "
+        f"{len(X_train)}"
+    )
+
+    print(
+        f"Testing rows  : "
+        f"{len(X_test)}"
+    )
 
     # --------------------------------------------------------
     # CLASS DISTRIBUTION
@@ -326,18 +534,36 @@ def train_classifier(
     }
 
     print()
-    print("TRAIN CLASS DISTRIBUTION")
-    print("-" * 40)
+    print(
+        "TRAIN CLASS DISTRIBUTION"
+    )
 
-    train_counts = y_train.value_counts().sort_index()
+    print(
+        "-" * 40
+    )
 
-    for class_id in [0, 1, 2]:
+    train_counts = (
+        y_train.value_counts()
+        .sort_index()
+    )
+
+    for class_id in [
+        0,
+        1,
+        2,
+    ]:
+
         count = int(
-            train_counts.get(class_id, 0)
+            train_counts.get(
+                class_id,
+                0,
+            )
         )
 
         percentage = (
-            count / len(y_train) * 100
+            count
+            / len(y_train)
+            * 100
         )
 
         print(
@@ -347,18 +573,36 @@ def train_classifier(
         )
 
     print()
-    print("TEST CLASS DISTRIBUTION")
-    print("-" * 40)
+    print(
+        "TEST CLASS DISTRIBUTION"
+    )
 
-    test_counts = y_test.value_counts().sort_index()
+    print(
+        "-" * 40
+    )
 
-    for class_id in [0, 1, 2]:
+    test_counts = (
+        y_test.value_counts()
+        .sort_index()
+    )
+
+    for class_id in [
+        0,
+        1,
+        2,
+    ]:
+
         count = int(
-            test_counts.get(class_id, 0)
+            test_counts.get(
+                class_id,
+                0,
+            )
         )
 
         percentage = (
-            count / len(y_test) * 100
+            count
+            / len(y_test)
+            * 100
         )
 
         print(
@@ -368,36 +612,54 @@ def train_classifier(
         )
 
     # --------------------------------------------------------
-    # CHECK THAT ALL CLASSES EXIST
+    # CHECK TRAINING CLASSES
     # --------------------------------------------------------
 
     missing_train_classes = [
         class_id
-        for class_id in [0, 1, 2]
-        if class_id not in set(y_train)
+        for class_id in [
+            0,
+            1,
+            2,
+        ]
+        if class_id
+        not in set(y_train)
     ]
 
     missing_test_classes = [
         class_id
-        for class_id in [0, 1, 2]
-        if class_id not in set(y_test)
+        for class_id in [
+            0,
+            1,
+            2,
+        ]
+        if class_id
+        not in set(y_test)
     ]
 
     if missing_train_classes:
+
         raise ValueError(
-            "Training data is missing class(es): "
+            "Training data is missing "
+            "class(es): "
             + ", ".join(
                 class_names[class_id]
-                for class_id in missing_train_classes
+                for class_id
+                in missing_train_classes
             )
-            + ". Try a smaller threshold."
+            + ". Try a smaller "
+            "threshold or a longer "
+            "training period."
         )
 
     if missing_test_classes:
+
         print()
+
         print(
-            "WARNING: Test data does not contain "
-            "all three classes."
+            "WARNING: Test data does "
+            "not contain all three "
+            "classes."
         )
 
     # --------------------------------------------------------
@@ -405,7 +667,10 @@ def train_classifier(
     # --------------------------------------------------------
 
     print()
-    print("Training XGBoost 3-class classifier...")
+    print(
+        "Training XGBoost "
+        "3-class classifier..."
+    )
 
     model = XGBClassifier(
         n_estimators=500,
@@ -434,7 +699,9 @@ def train_classifier(
     # PREDICTIONS
     # --------------------------------------------------------
 
-    y_pred = model.predict(X_test)
+    y_pred = model.predict(
+        X_test
+    )
 
     y_pred = np.asarray(
         y_pred,
@@ -445,8 +712,10 @@ def train_classifier(
     # PROBABILITIES
     # --------------------------------------------------------
 
-    probabilities = model.predict_proba(
-        X_test
+    probabilities = (
+        model.predict_proba(
+            X_test
+        )
     )
 
     probabilities = np.asarray(
@@ -487,24 +756,16 @@ def train_classifier(
     # CONFIDENCE
     # --------------------------------------------------------
 
-    # This is the model's maximum class probability.
-    #
-    # It is NOT a calibrated probability.
-    #
-    # Example:
-    # [0.10, 0.20, 0.70]
-    #
-    # confidence = 70%
-    #
-    # We will later calibrate these probabilities
-    # before showing them as trading confidence.
-
-    max_probabilities = probabilities.max(
-        axis=1
+    max_probabilities = (
+        probabilities.max(
+            axis=1
+        )
     )
 
     average_confidence = (
-        float(max_probabilities.mean())
+        float(
+            max_probabilities.mean()
+        )
         * 100
     )
 
@@ -514,7 +775,9 @@ def train_classifier(
 
     print()
     print("=" * 60)
-    print("CLASSIFIER EVALUATION")
+    print(
+        "CLASSIFIER EVALUATION"
+    )
     print("=" * 60)
 
     print(
@@ -538,7 +801,7 @@ def train_classifier(
     )
 
     print(
-        f"Average confidence: "
+        f"Average confidence : "
         f"{average_confidence:.2f}%"
     )
 
@@ -547,12 +810,18 @@ def train_classifier(
     # --------------------------------------------------------
 
     print()
-    print("Classification Report")
+    print(
+        "Classification Report"
+    )
 
     report = classification_report(
         y_test,
         y_pred,
-        labels=[0, 1, 2],
+        labels=[
+            0,
+            1,
+            2,
+        ],
         target_names=[
             "DOWN",
             "HOLD",
@@ -567,25 +836,36 @@ def train_classifier(
     # CONFUSION MATRIX
     # --------------------------------------------------------
 
-    print("Confusion Matrix")
+    print(
+        "Confusion Matrix"
+    )
 
     matrix = confusion_matrix(
         y_test,
         y_pred,
-        labels=[0, 1, 2],
+        labels=[
+            0,
+            1,
+            2,
+        ],
     )
 
     print()
     print(
         "              Predicted"
     )
+
     print(
         "              DOWN  HOLD  UP"
     )
 
-    for row_index, row in enumerate(matrix):
+    for row_index, row in enumerate(
+        matrix
+    ):
+
         print(
-            f"Actual {class_names[row_index]:<4} "
+            f"Actual "
+            f"{class_names[row_index]:<4} "
             f"{row[0]:>5} "
             f"{row[1]:>5} "
             f"{row[2]:>4}"
@@ -596,8 +876,13 @@ def train_classifier(
     # --------------------------------------------------------
 
     print()
-    print("FEATURE IMPORTANCE")
-    print("-" * 60)
+    print(
+        "FEATURE IMPORTANCE"
+    )
+
+    print(
+        "-" * 60
+    )
 
     feature_importance = pd.Series(
         model.feature_importances_,
@@ -606,7 +891,11 @@ def train_classifier(
         ascending=False
     )
 
-    for feature, importance in feature_importance.items():
+    for (
+        feature,
+        importance,
+    ) in feature_importance.items():
+
         print(
             f"{feature:<25} "
             f"{importance:.4f}"
@@ -635,9 +924,13 @@ def train_classifier(
 
     metrics = {
         "symbol": symbol,
+
         "timeframe": timeframe,
+
         "period": period,
+
         "horizon": horizon,
+
         "threshold": threshold,
 
         "classes": {
@@ -646,13 +939,37 @@ def train_classifier(
             "2": "UP",
         },
 
-        "training_rows": len(X_train),
-        "testing_rows": len(X_test),
+        "training_rows": len(
+            X_train
+        ),
 
-        "accuracy": float(accuracy),
-        "precision_macro": float(precision),
-        "recall_macro": float(recall),
-        "f1_macro": float(f1),
+        "testing_rows": len(
+            X_test
+        ),
+
+        "total_usable_rows": len(
+            X
+        ),
+
+        "minimum_required_rows": (
+            minimum_rows
+        ),
+
+        "accuracy": float(
+            accuracy
+        ),
+
+        "precision_macro": float(
+            precision
+        ),
+
+        "recall_macro": float(
+            recall
+        ),
+
+        "f1_macro": float(
+            f1
+        ),
 
         "average_model_probability": float(
             average_confidence / 100
@@ -665,7 +982,11 @@ def train_classifier(
                     0,
                 )
             )
-            for class_id in [0, 1, 2]
+            for class_id in [
+                0,
+                1,
+                2,
+            ]
         },
 
         "test_class_distribution": {
@@ -675,16 +996,27 @@ def train_classifier(
                     0,
                 )
             )
-            for class_id in [0, 1, 2]
+            for class_id in [
+                0,
+                1,
+                2,
+            ]
         },
 
-        "feature_columns": model_feature_columns,
+        "feature_columns": (
+            model_feature_columns
+        ),
     }
 
-    # Print summary so it is easy to inspect.
+    # --------------------------------------------------------
+    # FINAL SUMMARY
+    # --------------------------------------------------------
+
     print()
     print("=" * 60)
-    print("MODEL TRAINING COMPLETE")
+    print(
+        "MODEL TRAINING COMPLETE"
+    )
     print("=" * 60)
 
     print(
@@ -693,6 +1025,22 @@ def train_classifier(
 
     print(
         f"Timeframe    : {timeframe}"
+    )
+
+    print(
+        f"Period       : {period}"
+    )
+
+    print(
+        f"Usable rows  : {len(X)}"
+    )
+
+    print(
+        f"Train rows   : {len(X_train)}"
+    )
+
+    print(
+        f"Test rows    : {len(X_test)}"
     )
 
     print(
@@ -711,16 +1059,16 @@ def train_classifier(
     )
 
     print()
-    print("Model metadata:")
-    print(metrics)
-
-    print()
-    print("Model saved successfully.")
+    print(
+        "Model saved successfully."
+    )
 
     return {
         "model": model,
         "metrics": metrics,
-        "feature_importance": feature_importance,
+        "feature_importance": (
+            feature_importance
+        ),
     }
 
 
@@ -742,6 +1090,7 @@ def main():
     """
 
     if len(sys.argv) < 2:
+
         print(
             "Usage:"
         )
@@ -774,26 +1123,52 @@ def main():
         else DEFAULT_TIMEFRAME
     )
 
+    timeframe = (
+        str(timeframe)
+        .strip()
+        .lower()
+    )
+
     threshold = (
         float(sys.argv[3])
         if len(sys.argv) >= 4
         else DEFAULT_THRESHOLD
     )
 
+    # --------------------------------------------------------
+    # Select training period
+    # --------------------------------------------------------
+
+    training_periods = {
+        "1d": "5y",
+        "1wk": "10y",
+        "1mo": "20y",
+    }
+
+    period = training_periods.get(
+        timeframe,
+        DEFAULT_PERIOD,
+    )
+
     try:
+
         train_classifier(
             symbol=symbol,
             timeframe=timeframe,
-            period=DEFAULT_PERIOD,
+            period=period,
             horizon=DEFAULT_HORIZON,
             threshold=threshold,
         )
 
     except Exception as error:
+
         print()
         print("=" * 60)
-        print("TRAINING FAILED")
+        print(
+            "TRAINING FAILED"
+        )
         print("=" * 60)
+
         print(
             f"Error: {error}"
         )

@@ -213,7 +213,7 @@ def verify_predictions(
     db: Session,
     *,
     symbol: str | None = None,
-    timeframe: str = "1d",
+    timeframe: str | None = None,
 ) -> dict[str, Any]:
 
     query = db.query(
@@ -240,74 +240,73 @@ def verify_predictions(
         query.all()
     )
 
+    if not pending_predictions:
+        return {
+            "verified": 0,
+            "skipped": 0,
+            "total_checked": 0,
+        }
+
     verified = 0
     skipped = 0
+    market_cache: dict[tuple[str, str], pd.DataFrame] = {}
 
     for item in pending_predictions:
 
         try:
 
+            item_tf = (item.timeframe or timeframe or "1d").strip().lower()
+
             # ------------------------------------------------
-            # Download enough data after prediction time
+            # Check market data cache or download
             # ------------------------------------------------
 
-            if timeframe == "1d":
-
-                period = "1y"
-
-            elif timeframe == "1wk":
-
-                period = "5y"
-
-            elif timeframe == "1mo":
-
-                period = "10y"
-
+            if (item.symbol, item_tf) in market_cache:
+                market_data = market_cache[(item.symbol, item_tf)]
             else:
+                if item_tf == "1d":
+                    period = "1y"
+                elif item_tf == "1wk":
+                    period = "5y"
+                elif item_tf == "1mo":
+                    period = "10y"
+                else:
+                    period = "60d"
 
-                period = "60d"
+                market_data = yf.download(
+                    item.symbol,
+                    period=period,
+                    interval=item_tf,
+                    auto_adjust=False,
+                    progress=False,
+                )
 
-            market_data = yf.download(
-                item.symbol,
-                period=period,
-                interval=timeframe,
-                auto_adjust=False,
-                progress=False,
-            )
+                if (
+                    market_data is None
+                    or market_data.empty
+                ):
+                    skipped += 1
+                    continue
 
-            if (
-                market_data is None
-                or market_data.empty
-            ):
+                if isinstance(
+                    market_data.columns,
+                    pd.MultiIndex,
+                ):
+                    market_data.columns = [
+                        str(column[0]).lower()
+                        for column
+                        in market_data.columns
+                    ]
+                else:
+                    market_data.columns = [
+                        str(column).lower()
+                        for column
+                        in market_data.columns
+                    ]
 
-                skipped += 1
-                continue
-
-            # ------------------------------------------------
-            # Flatten columns
-            # ------------------------------------------------
-
-            if isinstance(
-                market_data.columns,
-                pd.MultiIndex,
-            ):
-
-                market_data.columns = [
-                    str(column[0]).lower()
-                    for column
-                    in market_data.columns
-                ]
-
-            else:
-
-                market_data.columns = [
-                    str(column).lower()
-                    for column
-                    in market_data.columns
-                ]
+                market_cache[(item.symbol, item_tf)] = market_data
 
             if "close" not in market_data.columns:
-
                 skipped += 1
                 continue
 
@@ -363,7 +362,7 @@ def verify_predictions(
                 continue
 
             future_prices.sort(
-                key=lambda item: item[0]
+                key=lambda x: x[0]
             )
 
             actual_time, actual_price = (
@@ -411,11 +410,11 @@ def verify_predictions(
             # ------------------------------------------------
 
             item.actual_price = (
-                actual_price
+                round(actual_price, 2)
             )
 
             item.actual_return_percent = (
-                actual_return
+                round(actual_return, 4)
             )
 
             item.actual_direction = (
@@ -432,12 +431,13 @@ def verify_predictions(
 
             verified += 1
 
-        except Exception:
-
+        except Exception as error:
+            print(f"Error verifying prediction item {item.id}: {error}")
             skipped += 1
             continue
 
-    db.commit()
+    if verified > 0:
+        db.commit()
 
     return {
         "verified": verified,

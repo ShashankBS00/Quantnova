@@ -7,6 +7,7 @@ Responsible for:
     - Starting model training
     - Tracking training status
     - Preventing duplicate training jobs
+    - Selecting timeframe-aware training periods
 """
 
 from __future__ import annotations
@@ -26,6 +27,31 @@ from app.prediction.train_classifier import train_classifier
 _training_jobs: dict[str, dict[str, Any]] = {}
 
 _training_lock = threading.Lock()
+
+
+# ============================================================
+# TIMEFRAME CONFIGURATION
+# ============================================================
+
+# Historical period used when TRAINING the model.
+#
+# Different timeframes require different amounts of history.
+#
+# 1 day:
+#     5 years
+#
+# 1 week:
+#     10 years
+#
+# 1 month:
+#     20 years
+#
+# These values are used only for model training.
+TRAINING_PERIODS = {
+    "1d": "5y",
+    "1wk": "10y",
+    "1mo": "20y",
+}
 
 
 # ============================================================
@@ -53,6 +79,22 @@ def normalize_timeframe(timeframe: str) -> str:
         str(timeframe)
         .strip()
         .lower()
+    )
+
+
+def get_training_period(timeframe: str) -> str:
+    """
+    Return the appropriate historical training period
+    for the selected timeframe.
+    """
+
+    timeframe = normalize_timeframe(
+        timeframe
+    )
+
+    return TRAINING_PERIODS.get(
+        timeframe,
+        "5y",
     )
 
 
@@ -197,13 +239,36 @@ def _train_model_worker(
             }
 
         # ----------------------------------------------------
+        # Select training period
+        # ----------------------------------------------------
+
+        training_period = get_training_period(
+            timeframe
+        )
+
+        print()
+        print("=" * 60)
+        print("QuantNova AI Model Training")
+        print("=" * 60)
+        print(
+            f"Symbol          : {symbol}"
+        )
+        print(
+            f"Timeframe       : {timeframe}"
+        )
+        print(
+            f"Training period : {training_period}"
+        )
+        print("=" * 60)
+
+        # ----------------------------------------------------
         # Train model
         # ----------------------------------------------------
 
         result = train_classifier(
             symbol=symbol,
             timeframe=timeframe,
-            period="5y",
+            period=training_period,
             horizon=1,
             threshold=threshold,
         )
@@ -227,6 +292,7 @@ def _train_model_worker(
                     "AI model trained "
                     "successfully."
                 ),
+                "training_period": training_period,
                 "started_at": (
                     _training_jobs.get(
                         job_key,
@@ -249,6 +315,12 @@ def _train_model_worker(
                     "f1_macro": metrics.get(
                         "f1_macro"
                     ),
+                    "training_rows": metrics.get(
+                        "training_rows"
+                    ),
+                    "testing_rows": metrics.get(
+                        "testing_rows"
+                    ),
                 },
             }
 
@@ -257,6 +329,21 @@ def _train_model_worker(
         # ----------------------------------------------------
         # Training failed
         # ----------------------------------------------------
+
+        print()
+        print("=" * 60)
+        print("AI MODEL TRAINING FAILED")
+        print("=" * 60)
+        print(
+            f"Symbol    : {symbol}"
+        )
+        print(
+            f"Timeframe : {timeframe}"
+        )
+        print(
+            f"Error     : {error}"
+        )
+        print("=" * 60)
 
         with _training_lock:
 
@@ -301,6 +388,25 @@ def start_training(
     )
 
     # --------------------------------------------------------
+    # Validate timeframe
+    # --------------------------------------------------------
+
+    supported_timeframes = {
+        "1d",
+        "1wk",
+        "1mo",
+    }
+
+    if timeframe not in supported_timeframes:
+
+        raise ValueError(
+            f"Unsupported AI prediction timeframe: "
+            f"{timeframe}. "
+            f"Supported timeframes: "
+            f"{', '.join(sorted(supported_timeframes))}"
+        )
+
+    # --------------------------------------------------------
     # Model already exists
     # --------------------------------------------------------
 
@@ -339,6 +445,12 @@ def start_training(
                     existing_job
                 )
 
+            if existing_status == "QUEUED":
+
+                return dict(
+                    existing_job
+                )
+
             if existing_status == "READY":
 
                 return dict(
@@ -355,6 +467,9 @@ def start_training(
             "message": (
                 "AI model training "
                 "has been queued."
+            ),
+            "training_period": get_training_period(
+                timeframe
             ),
             "queued_at": datetime.now(
                 timezone.utc
@@ -384,6 +499,9 @@ def start_training(
         "message": (
             "AI model training "
             "has started."
+        ),
+        "training_period": get_training_period(
+            timeframe
         ),
     }
 
@@ -416,7 +534,10 @@ def retry_training(
 
             if existing_job.get(
                 "status"
-            ) == "TRAINING":
+            ) in {
+                "TRAINING",
+                "QUEUED",
+            }:
 
                 return dict(
                     existing_job
