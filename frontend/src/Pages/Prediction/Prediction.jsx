@@ -314,14 +314,16 @@ const Prediction = () => {
           HEADER
       ======================================================= */}
       <div
-        className="relative overflow-hidden"
+        className="relative z-30"
         style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 42%, #1e40af 72%, #0c4a6e 100%)" }}
       >
-        {/* decorative orbs */}
-        <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(139,92,246,0.55) 0%, transparent 68%)", opacity: 0.22 }} />
-        <div className="absolute top-8 left-1/3 w-60 h-60 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(56,189,248,0.45) 0%, transparent 68%)", opacity: 0.12 }} />
+        {/* decorative orbs clipped to banner */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(139,92,246,0.55) 0%, transparent 68%)", opacity: 0.22 }} />
+          <div className="absolute top-8 left-1/3 w-60 h-60 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(56,189,248,0.45) 0%, transparent 68%)", opacity: 0.12 }} />
+        </div>
 
         <div className="relative max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8 pb-10">
 
@@ -439,8 +441,8 @@ const Prediction = () => {
                 </button>
                 {timeframeOpen && (
                   <>
-                    <div className="fixed inset-0 z-20" onClick={() => setTimeframeOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-30 overflow-hidden">
+                    <div className="fixed inset-0 z-40" onClick={() => setTimeframeOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
                       {TIMEFRAMES.map((item) => (
                         <button key={item.value} type="button"
                           onClick={() => { setTimeframe(item.value); setTimeframeOpen(false); setPrediction(null); }}
