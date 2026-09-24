@@ -640,7 +640,7 @@ const Prediction = () => {
               <div className="lg:col-span-1 qn-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="font-bold text-slate-900">Confidence Breakdown</h2>
+                    <h2 className="font-bold text-slate-900">Prediction Confidence</h2>
                     <p className="text-xs text-slate-400 mt-0.5">XGBoost class probabilities</p>
                   </div>
                   <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest text-indigo-600"
@@ -669,7 +669,7 @@ const Prediction = () => {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="space-y-2.5 mt-2">
+                <div className="space-y-3 mt-3">
                   {[
                     { dir: "UP",   conf: DIRECTION_CONFIG.UP },
                     { dir: "HOLD", conf: DIRECTION_CONFIG.HOLD },
@@ -678,13 +678,18 @@ const Prediction = () => {
                     const val = Number((prediction.probabilities?.[dir] || 0) * 100);
                     const Icon = conf.icon;
                     return (
-                      <div key={dir} className="flex items-center gap-2">
-                        <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${conf.textClass}`} />
-                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${conf.barClass} transition-all duration-700`}
-                            style={{ width: `${Math.min(100, val)}%` }} />
+                      <div key={dir} className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 w-16 flex-shrink-0">
+                          <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${conf.textClass}`} />
+                          <span className={`text-xs font-bold ${conf.textClass} tracking-wide`}>{dir}</span>
                         </div>
-                        <span className="text-xs font-bold text-slate-600 w-12 text-right tabular-nums">{val.toFixed(1)}%</span>
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${conf.barClass} transition-all duration-700`}
+                            style={{ width: `${Math.min(100, Math.max(0, val))}%` }} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 w-16 text-right tabular-nums">
+                          {val.toFixed(2)}%
+                        </span>
                       </div>
                     );
                   })}
