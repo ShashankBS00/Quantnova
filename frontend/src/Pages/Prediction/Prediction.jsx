@@ -1,4 +1,4 @@
-import React, {
+import {
   useCallback,
   useEffect,
   useRef,
@@ -8,18 +8,36 @@ import React, {
 import {
   AlertCircle,
   Activity,
+  ArrowUpRight,
+  ArrowDownRight,
+  BarChart3,
   Brain,
   CheckCircle2,
   ChevronDown,
   Clock,
+  Cpu,
+  Database,
+  Layers,
   Loader2,
   Minus,
   RefreshCw,
   Search,
+  Shield,
+  Sparkles,
+  Target,
   TrendingDown,
   TrendingUp,
   X,
+  Zap,
 } from "lucide-react";
+
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 import {
   getPrediction,
@@ -29,23 +47,15 @@ import {
   verifyPredictionHistory,
 } from "../../services/predictionService";
 
+
 // ============================================================
 // TIMEFRAMES
 // ============================================================
 
 const TIMEFRAMES = [
-  {
-    value: "1d",
-    label: "1 Day",
-  },
-  {
-    value: "1wk",
-    label: "1 Week",
-  },
-  {
-    value: "1mo",
-    label: "1 Month",
-  },
+  { value: "1d",  label: "1 Day",   description: "Daily signals" },
+  { value: "1wk", label: "1 Week",  description: "Weekly signals" },
+  { value: "1mo", label: "1 Month", description: "Monthly signals" },
 ];
 
 
@@ -64,2218 +74,991 @@ const DEFAULT_STOCK = {
 
 
 // ============================================================
-// COMPONENT
+// FORMAT HELPERS
+// ============================================================
+
+const formatPrice = (price) => {
+  if (price === null || price === undefined || Number.isNaN(Number(price))) return "--";
+  return `\u20B9${Number(price).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+const formatPercent = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
+  const n = Number(value);
+  return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+};
+
+const formatTime = (date) => {
+  if (!date) return "--";
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+};
+
+const formatDate = (str) => {
+  if (!str) return "--";
+  return new Date(str).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+
+// ============================================================
+// DIRECTION CONFIG
+// ============================================================
+
+const DIRECTION_CONFIG = {
+  UP: {
+    icon: TrendingUp,
+    textClass: "text-emerald-600",
+    bgClass: "bg-emerald-50",
+    barClass: "bg-emerald-500",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    fill: "#10b981",
+    darkGrad: "#064e3b, #065f46",
+    darkGlow: "rgba(16,185,129,0.25)",
+    signalLabel: "Bullish signal",
+  },
+  DOWN: {
+    icon: TrendingDown,
+    textClass: "text-red-600",
+    bgClass: "bg-red-50",
+    barClass: "bg-red-500",
+    badgeClass: "bg-red-50 text-red-700 border-red-200",
+    fill: "#ef4444",
+    darkGrad: "#450a0a, #7f1d1d",
+    darkGlow: "rgba(239,68,68,0.25)",
+    signalLabel: "Bearish signal",
+  },
+  HOLD: {
+    icon: Minus,
+    textClass: "text-amber-600",
+    bgClass: "bg-amber-50",
+    barClass: "bg-amber-500",
+    badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
+    fill: "#f59e0b",
+    darkGrad: "#451a03, #78350f",
+    darkGlow: "rgba(245,158,11,0.25)",
+    signalLabel: "Neutral signal",
+  },
+};
+
+const DEFAULT_DIR = {
+  icon: Minus,
+  textClass: "text-slate-400",
+  bgClass: "bg-slate-50",
+  barClass: "bg-slate-300",
+  badgeClass: "bg-slate-50 text-slate-500 border-slate-200",
+  fill: "#94a3b8",
+  darkGrad: "#1e293b, #334155",
+  darkGlow: "rgba(148,163,184,0.15)",
+  signalLabel: "No signal",
+};
+
+
+// ============================================================
+// COMPONENT: Prediction
 // ============================================================
 
 const Prediction = () => {
 
-  // ----------------------------------------------------------
-  // STOCK
-  // ----------------------------------------------------------
+  const [selectedStock, setSelectedStock] = useState(DEFAULT_STOCK);
+  const [searchQuery, setSearchQuery]     = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen]       = useState(false);
+  const [timeframe, setTimeframe]         = useState("1d");
+  const [timeframeOpen, setTimeframeOpen] = useState(false);
+  const [prediction, setPrediction]       = useState(null);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState("");
+  const [lastUpdated, setLastUpdated]     = useState(null);
+  const [modelStatus, setModelStatus]     = useState("");
+  const [predictionHistory, setPredictionHistory]         = useState([]);
+  const [predictionPerformance, setPredictionPerformance] = useState(null);
+  const [historyLoading, setHistoryLoading]               = useState(false);
+  const [verifyLoading, setVerifyLoading]                 = useState(false);
+  const [historyError, setHistoryError]                   = useState("");
+  const [animKey, setAnimKey]             = useState(0);
 
-  const [selectedStock, setSelectedStock] =
-    useState(DEFAULT_STOCK);
-
-
-  // ----------------------------------------------------------
-  // SEARCH
-  // ----------------------------------------------------------
-
-  const [searchQuery, setSearchQuery] =
-    useState("");
-
-  const [searchResults, setSearchResults] =
-    useState([]);
-
-  const [searchLoading, setSearchLoading] =
-    useState(false);
-
-  const [searchOpen, setSearchOpen] =
-    useState(false);
+  const searchTimeoutRef = useRef(null);
+  const trainingPollRef  = useRef(null);
 
 
-  // ----------------------------------------------------------
-  // TIMEFRAME
-  // ----------------------------------------------------------
-
-  const [timeframe, setTimeframe] =
-    useState("1d");
-
-  const [timeframeOpen, setTimeframeOpen] =
-    useState(false);
-
-
-  // ----------------------------------------------------------
-  // PREDICTION
-  // ----------------------------------------------------------
-
-  const [prediction, setPrediction] =
-    useState(null);
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  const [lastUpdated, setLastUpdated] =
-    useState(null);
-
-
-  // ----------------------------------------------------------
-  // MODEL TRAINING
-  // ----------------------------------------------------------
-
-  const [modelStatus, setModelStatus] =
-    useState("");
-
-
-  // ----------------------------------------------------------
-  // REFS
-  // ----------------------------------------------------------
-
-  const searchTimeoutRef =
-    useRef(null);
-
-  const trainingPollRef =
-    useRef(null);
-
-// ----------------------------------------------------------
-// PREDICTION HISTORY
-// ----------------------------------------------------------
-
-const [predictionHistory, setPredictionHistory] =
-  useState([]);
-
-const [predictionPerformance, setPredictionPerformance] =
-  useState(null);
-
-const [historyLoading, setHistoryLoading] =
-  useState(false);
-
-const [verifyLoading, setVerifyLoading] =
-  useState(false);
-
-const [historyError, setHistoryError] =
-  useState("");
-  
-  // ==========================================================
-  // SEARCH STOCKS
-  // ==========================================================
-
+  // Search
   useEffect(() => {
-
-    if (searchTimeoutRef.current) {
-
-      clearTimeout(
-        searchTimeoutRef.current
-      );
-    }
-
-
-    const query =
-      searchQuery.trim();
-
-
-    if (!query) {
-
-      setSearchResults([]);
-      setSearchLoading(false);
-
-      return;
-    }
-
-
-    searchTimeoutRef.current =
-      setTimeout(
-        async () => {
-
-          setSearchLoading(true);
-
-          try {
-
-            const data =
-              await searchStocks(
-                query,
-                10
-              );
-
-            setSearchResults(
-              data.results || []
-            );
-
-          } catch (searchError) {
-
-            console.error(
-              "Search error:",
-              searchError
-            );
-
-            setSearchResults([]);
-
-          } finally {
-
-            setSearchLoading(false);
-
-          }
-
-        },
-        350
-      );
-
-
-    return () => {
-
-      if (
-        searchTimeoutRef.current
-      ) {
-
-        clearTimeout(
-          searchTimeoutRef.current
-        );
-
-      }
-
-    };
-
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    const q = searchQuery.trim();
+    if (!q) { setSearchResults([]); setSearchLoading(false); return; }
+    searchTimeoutRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const data = await searchStocks(q, 10);
+        setSearchResults(data.results || []);
+      } catch { setSearchResults([]); }
+      finally { setSearchLoading(false); }
+    }, 350);
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, [searchQuery]);
 
-
-  // ==========================================================
-  // SELECT STOCK
-  // ==========================================================
-
-  const handleSelectStock = (
-    stock
-  ) => {
-
+  const handleSelectStock = (stock) => {
     setSelectedStock(stock);
-
-    setSearchQuery("");
-
-    setSearchResults([]);
-
-    setSearchOpen(false);
-
-    setPrediction(null);
-
-    setError("");
-
-    setModelStatus("");
+    setSearchQuery(""); setSearchResults([]);
+    setSearchOpen(false); setPrediction(null);
+    setError(""); setModelStatus("");
   };
 
-
-  // ==========================================================
-  // CLEAR SEARCH
-  // ==========================================================
-
-  const clearSearch = () => {
-
-    setSearchQuery("");
-
-    setSearchResults([]);
-
-  };
+  const clearSearch = () => { setSearchQuery(""); setSearchResults([]); };
 
 
-  // ==========================================================
-  // FETCH PREDICTION
-  // ==========================================================
-
-  const fetchPrediction =
-    useCallback(
-      async () => {
-
-        if (
-          !selectedStock?.symbol
-        ) {
-          return;
-        }
-
-
-        setLoading(true);
-
-        setError("");
-
-        try {
-
-          const data =
-            await getPrediction(
-              selectedStock.symbol,
-              timeframe
-            );
-
-
-          // --------------------------------------------------
-          // Model training
-          // --------------------------------------------------
-
-          if (
-            data.status ===
-              "QUEUED" ||
-            data.status ===
-              "TRAINING"
-          ) {
-
-            setPrediction(null);
-
-            setModelStatus(
-              "TRAINING"
-            );
-
-            return;
-          }
-
-
-          // --------------------------------------------------
-          // Failed training
-          // --------------------------------------------------
-
-          if (
-            data.status ===
-            "FAILED"
-          ) {
-
-            setModelStatus(
-              "FAILED"
-            );
-
-            setError(
-              data.error ||
-              data.message ||
-              "AI model training failed."
-            );
-
-            return;
-          }
-
-
-          // --------------------------------------------------
-          // Prediction ready
-          // --------------------------------------------------
-
-          if (
-            data.success === true &&
-            data.status ===
-              "READY"
-          ) {
-
-            setPrediction(data);
-
-            setModelStatus(
-              "READY"
-            );
-
-            setLastUpdated(
-              new Date()
-            );
-
-          }
-
-        } catch (predictionError) {
-
-          console.error(
-            "Prediction error:",
-            predictionError
-          );
-
-          setError(
-            predictionError.message ||
-            "Failed to load prediction."
-          );
-
-        } finally {
-
-          setLoading(false);
-
-        }
-
-      },
-      [
-        selectedStock,
-        timeframe,
-      ]
-    );
-
-
-  // ==========================================================
-  // INITIAL / STOCK / TIMEFRAME LOAD
-  // ==========================================================
-
-  useEffect(() => {
-
-    fetchPrediction();
-
-  }, [fetchPrediction]);
-
-
-  // ==========================================================
-  // TRAINING POLLING
-  // ==========================================================
-
-  useEffect(() => {
-
-    if (
-      modelStatus !==
-      "TRAINING"
-    ) {
-
-      return;
-    }
-
-
-    if (
-      trainingPollRef.current
-    ) {
-
-      clearInterval(
-        trainingPollRef.current
-      );
-
-    }
-
-
-    trainingPollRef.current =
-      setInterval(
-        () => {
-
-          fetchPrediction();
-
-        },
-        5000
-      );
-
-
-    return () => {
-
-      if (
-        trainingPollRef.current
-      ) {
-
-        clearInterval(
-          trainingPollRef.current
-        );
-
+  // Fetch prediction
+  const fetchPrediction = useCallback(async () => {
+    if (!selectedStock?.symbol) return;
+    setLoading(true); setError("");
+    try {
+      const data = await getPrediction(selectedStock.symbol, timeframe);
+      if (data.status === "QUEUED" || data.status === "TRAINING") {
+        setPrediction(null); setModelStatus("TRAINING"); return;
       }
-
-    };
-
-  }, [
-    modelStatus,
-    fetchPrediction,
-  ]);
-
-
-
-const fetchPredictionHistory =
-  useCallback(
-    async () => {
-
-      if (!selectedStock?.symbol) {
+      if (data.status === "FAILED") {
+        setModelStatus("FAILED");
+        setError(data.error || data.message || "AI model training failed.");
         return;
       }
-
-      setHistoryLoading(true);
-      setHistoryError("");
-
-      try {
-
-        const [
-          historyData,
-          performanceData,
-        ] = await Promise.all([
-          getPredictionHistory(
-            selectedStock.symbol,
-            timeframe,
-            50
-          ),
-
-          getPredictionPerformance(
-            selectedStock.symbol,
-            timeframe
-          ),
-        ]);
-
-        setPredictionHistory(
-          historyData.results || []
-        );
-
-        setPredictionPerformance(
-          performanceData || null
-        );
-
-      } catch (error) {
-
-        console.error(
-          "History loading error:",
-          error
-        );
-
-        setHistoryError(
-          error.message ||
-          "Unable to load prediction history."
-        );
-
-      } finally {
-
-        setHistoryLoading(false);
-
+      if (data.success === true && data.status === "READY") {
+        setPrediction(data); setModelStatus("READY");
+        setLastUpdated(new Date()); setAnimKey((k) => k + 1);
       }
+    } catch (e) { setError(e.message || "Failed to load prediction."); }
+    finally { setLoading(false); }
+  }, [selectedStock, timeframe]);
 
-    },
-    [
-      selectedStock,
-      timeframe,
-    ]
-  );
+  useEffect(() => { fetchPrediction(); }, [fetchPrediction]);
 
-
-  // ==========================================================
-  // PREDICTION HISTORY LOAD & VERIFY
-  // ==========================================================
-
+  // Poll during training
   useEffect(() => {
+    if (modelStatus !== "TRAINING") return;
+    if (trainingPollRef.current) clearInterval(trainingPollRef.current);
+    trainingPollRef.current = setInterval(() => { fetchPrediction(); }, 5000);
+    return () => { if (trainingPollRef.current) clearInterval(trainingPollRef.current); };
+  }, [modelStatus, fetchPrediction]);
 
-    fetchPredictionHistory();
 
-  }, [fetchPredictionHistory]);
+  // Fetch history & performance
+  const fetchPredictionHistory = useCallback(async () => {
+    if (!selectedStock?.symbol) return;
+    setHistoryLoading(true); setHistoryError("");
+    try {
+      const [histData, perfData] = await Promise.all([
+        getPredictionHistory(selectedStock.symbol, timeframe, 50),
+        getPredictionPerformance(selectedStock.symbol, timeframe),
+      ]);
+      setPredictionHistory(histData.results || []);
+      setPredictionPerformance(perfData || null);
+    } catch (e) {
+      setHistoryError(e.message || "Unable to load prediction history.");
+    } finally { setHistoryLoading(false); }
+  }, [selectedStock, timeframe]);
 
+  useEffect(() => { fetchPredictionHistory(); }, [fetchPredictionHistory]);
+
+
+  // Verify
   const handleVerifyPredictions = async () => {
     if (!selectedStock?.symbol) return;
-    setVerifyLoading(true);
-    setHistoryError("");
-
+    setVerifyLoading(true); setHistoryError("");
     try {
       await verifyPredictionHistory(selectedStock.symbol, timeframe);
       await fetchPredictionHistory();
-    } catch (error) {
-      console.error("Verification error:", error);
-      setHistoryError(
-        error.message || "Failed to verify prediction history."
-      );
-    } finally {
-      setVerifyLoading(false);
-    }
+    } catch (e) {
+      setHistoryError(e.message || "Failed to verify prediction history.");
+    } finally { setVerifyLoading(false); }
   };
 
 
-
-  
-
-  // ==========================================================
-  // CLEANUP
-  // ==========================================================
-
+  // Cleanup
   useEffect(() => {
-
     return () => {
-
-      if (
-        searchTimeoutRef.current
-      ) {
-
-        clearTimeout(
-          searchTimeoutRef.current
-        );
-
-      }
-
-
-      if (
-        trainingPollRef.current
-      ) {
-
-        clearInterval(
-          trainingPollRef.current
-        );
-
-      }
-
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      if (trainingPollRef.current)  clearInterval(trainingPollRef.current);
     };
-
   }, []);
 
 
-  // ==========================================================
-  // FORMAT HELPERS
-  // ==========================================================
+  const dirConf = prediction
+    ? (DIRECTION_CONFIG[prediction.prediction] || DEFAULT_DIR)
+    : DEFAULT_DIR;
 
-  const formatPrice = (
-    price
-  ) => {
+  const pendingCount = predictionHistory.filter(
+    (h) => h.is_correct === null || h.is_correct === undefined
+  ).length;
 
-    if (
-      price === null ||
-      price === undefined ||
-      Number.isNaN(
-        Number(price)
-      )
-    ) {
+  const timeframeCurrent = TIMEFRAMES.find((t) => t.value === timeframe);
 
-      return "--";
-    }
 
-
-    return `₹${Number(
-      price
-    ).toLocaleString(
-      "en-IN",
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    )}`;
-
-  };
-
-
-  const formatPercent = (
-    value
-  ) => {
-
-    if (
-      value === null ||
-      value === undefined ||
-      Number.isNaN(
-        Number(value)
-      )
-    ) {
-
-      return "--";
-    }
-
-
-    const number =
-      Number(value);
-
-
-    return `${
-      number >= 0
-        ? "+"
-        : ""
-    }${number.toFixed(2)}%`;
-
-  };
-
-
-  const formatTime = (
-    date
-  ) => {
-
-    if (!date) {
-
-      return "--";
-    }
-
-
-    return date.toLocaleTimeString(
-      "en-IN",
-      {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }
-    );
-
-  };
-
-
-  // ==========================================================
-  // PREDICTION UI HELPERS
-  // ==========================================================
-
-  const getPredictionColor =
-    () => {
-
-      if (!prediction) {
-        return "text-slate-600";
-      }
-
-
-      switch (
-        prediction.prediction
-      ) {
-
-        case "UP":
-          return "text-emerald-600";
-
-        case "DOWN":
-          return "text-red-600";
-
-        case "HOLD":
-          return "text-amber-600";
-
-        default:
-          return "text-slate-600";
-
-      }
-
-    };
-
-
-  const getPredictionBackground =
-    () => {
-
-      if (!prediction) {
-        return "bg-slate-50";
-      }
-
-
-      switch (
-        prediction.prediction
-      ) {
-
-        case "UP":
-          return "bg-emerald-50";
-
-        case "DOWN":
-          return "bg-red-50";
-
-        case "HOLD":
-          return "bg-amber-50";
-
-        default:
-          return "bg-slate-50";
-
-      }
-
-    };
-
-
-  const getPredictionIcon =
-    () => {
-
-      if (!prediction) {
-
-        return (
-          <Minus className="w-10 h-10" />
-        );
-
-      }
-
-
-      switch (
-        prediction.prediction
-      ) {
-
-        case "UP":
-
-          return (
-            <TrendingUp
-              className="w-10 h-10"
-            />
-          );
-
-        case "DOWN":
-
-          return (
-            <TrendingDown
-              className="w-10 h-10"
-            />
-          );
-
-        default:
-
-          return (
-            <Minus
-              className="w-10 h-10"
-            />
-          );
-
-      }
-
-    };
-
-
-  const getProbability = (
-    direction
-  ) => {
-
-    if (
-      !prediction?.probabilities
-    ) {
-
-      return 0;
-    }
-
-
-    return (
-      Number(
-        prediction.probabilities[
-          direction
-        ]
-      ) * 100
-    );
-
-  };
-
-
-  // ==========================================================
-  // TRAINING SCREEN
-  // ==========================================================
-
-  const renderTrainingState =
-    () => (
-
-      <div className="bg-white rounded-3xl border border-slate-200 p-12 md:p-16 text-center">
-
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-indigo-50 flex items-center justify-center">
-
-          <Loader2
-            className="w-8 h-8 text-indigo-600 animate-spin"
-          />
-
-        </div>
-
-
-        <h2 className="mt-6 text-xl font-bold text-slate-900">
-
-          Preparing AI Model
-
-        </h2>
-
-
-        <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto">
-
-          QuantNova is training an AI model
-          for{" "}
-
-          <span className="font-semibold text-slate-700">
-
-            {selectedStock.symbol}
-
-          </span>
-
-          . This only needs to happen
-          the first time for this stock
-          and timeframe.
-
-        </p>
-
-
-        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
-
-          <Activity className="w-4 h-4" />
-
-          Training in background...
-
-        </div>
-
-      </div>
-
-    );
-
-
-  // ==========================================================
-  // MAIN RENDER
-  // ==========================================================
+  // ----------------------------------------------------------
+  // RENDER
+  // ----------------------------------------------------------
 
   return (
+    <div className="min-h-screen" style={{ background: "var(--qn-bg)" }}>
 
-    <div className="min-h-screen bg-slate-50 p-4 md:p-6 lg:p-8">
+      {/* =======================================================
+          HEADER
+      ======================================================= */}
+      <div
+        className="relative overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 42%, #1e40af 72%, #0c4a6e 100%)" }}
+      >
+        {/* decorative orbs */}
+        <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, rgba(139,92,246,0.55) 0%, transparent 68%)", opacity: 0.22 }} />
+        <div className="absolute top-8 left-1/3 w-60 h-60 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, rgba(56,189,248,0.45) 0%, transparent 68%)", opacity: 0.12 }} />
 
-      <div className="max-w-7xl mx-auto">
+        <div className="relative max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8 pb-10">
 
+          {/* Title row */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 
-        {/* ==================================================
-            HEADER
-        ================================================== */}
-
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 mb-8">
-
-
-          {/* TITLE */}
-
-          <div>
-
-            <div className="flex items-center gap-3">
-
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200">
-
-                <Brain
-                  className="w-6 h-6 text-white"
-                />
-
+            {/* Brand */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.9) 0%, rgba(139,92,246,0.9) 100%)",
+                  boxShadow: "0 8px 32px rgba(99,102,241,0.40), inset 0 1px 0 rgba(255,255,255,0.20)",
+                }}>
+                <Brain className="w-7 h-7 text-white" />
               </div>
-
-
               <div>
-
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
-
-                  AI Market Prediction
-
-                </h1>
-
-
-                <p className="text-sm text-slate-500 mt-1">
-
-                  XGBoost-powered market direction analysis
-
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                    AI Market Analytics
+                  </h1>
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-violet-200 tracking-widest uppercase"
+                    style={{ background: "rgba(139,92,246,0.25)", border: "1px solid rgba(139,92,246,0.40)" }}>
+                    <Sparkles className="w-3 h-3" /> XGBoost
+                  </span>
+                </div>
+                <p className="text-sm text-slate-300 mt-0.5">
+                  Real-time AI prediction &middot; {selectedStock.short_name || selectedStock.symbol}
                 </p>
-
               </div>
-
             </div>
 
+            {/* Controls */}
+            <div className="flex flex-col sm:flex-row gap-3">
+
+              {/* Stock Search */}
+              <div className="relative w-full sm:w-72">
+                <div className={`flex items-center rounded-xl transition-all ${searchOpen ? "ring-2 ring-violet-400/60" : "ring-1 ring-white/20"}`}
+                  style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(12px)" }}>
+                  <Search className="w-4 h-4 text-slate-300 ml-3.5 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={searchOpen ? searchQuery : (selectedStock.short_name || selectedStock.symbol)}
+                    onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); setTimeframeOpen(false); }}
+                    onFocus={() => { setSearchOpen(true); setTimeframeOpen(false); }}
+                    placeholder="Search stocks..."
+                    className="w-full px-3 py-3 bg-transparent text-sm font-medium text-white placeholder-slate-400 outline-none"
+                  />
+                  {searchQuery && (
+                    <button type="button" onClick={clearSearch} className="p-1 mr-1 rounded hover:bg-white/10">
+                      <X className="w-4 h-4 text-slate-400" />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => { setSearchOpen(!searchOpen); setTimeframeOpen(false); }} className="p-3">
+                    <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${searchOpen ? "rotate-180" : ""}`} />
+                  </button>
+                </div>
+
+                {searchOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setSearchOpen(false)} />
+                    <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-slate-100">
+                        <p className="text-xs text-slate-400">Search by company name or symbol</p>
+                      </div>
+                      {searchLoading && (
+                        <div className="px-4 py-6 flex items-center justify-center gap-2 text-sm text-slate-500">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Searching...
+                        </div>
+                      )}
+                      {!searchLoading && searchQuery.trim() && searchResults.length > 0 && (
+                        <div className="max-h-72 overflow-y-auto">
+                          {searchResults.map((stock) => (
+                            <button key={`${stock.symbol}-${stock.exchange}`} type="button"
+                              onClick={() => handleSelectStock(stock)}
+                              className="w-full text-left px-4 py-3 hover:bg-indigo-50 border-b border-slate-50 last:border-b-0 transition">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-sm text-slate-800 truncate">{stock.short_name || stock.name}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5 truncate">{stock.symbol}</p>
+                                </div>
+                                <div className="flex-shrink-0 text-right">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase">{stock.exchange_display || stock.exchange || "Market"}</p>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">{stock.quote_type}</p>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+                        <div className="px-4 py-8 text-center">
+                          <Search className="w-8 h-8 mx-auto text-slate-300" />
+                          <p className="text-sm font-medium text-slate-600 mt-3">No stocks found</p>
+                          <p className="text-xs text-slate-400 mt-1">Try another company name or symbol</p>
+                        </div>
+                      )}
+                      {!searchQuery.trim() && (
+                        <div className="px-4 py-6 text-center">
+                          <Search className="w-7 h-7 mx-auto text-slate-300" />
+                          <p className="text-sm text-slate-500 mt-2">Start typing to search</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Timeframe */}
+              <div className="relative">
+                <button type="button" onClick={() => { setTimeframeOpen(!timeframeOpen); setSearchOpen(false); }}
+                  className="flex items-center justify-between gap-6 w-full sm:w-36 px-4 py-3 rounded-xl text-sm font-semibold text-white transition-all"
+                  style={{ background: "rgba(255,255,255,0.10)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.18)" }}>
+                  <span>{timeframeCurrent?.label}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${timeframeOpen ? "rotate-180" : ""}`} />
+                </button>
+                {timeframeOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setTimeframeOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-30 overflow-hidden">
+                      {TIMEFRAMES.map((item) => (
+                        <button key={item.value} type="button"
+                          onClick={() => { setTimeframe(item.value); setTimeframeOpen(false); setPrediction(null); }}
+                          className={`w-full text-left px-4 py-3 text-sm transition ${timeframe === item.value ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-700 hover:bg-slate-50"}`}>
+                          <div className="font-semibold">{item.label}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{item.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Predict button */}
+              <button type="button" onClick={fetchPrediction} disabled={loading}
+                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-60 transition-all active:scale-95"
+                style={{ background: "linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%)", boxShadow: "0 4px 14px rgba(109,40,217,0.35), inset 0 1px 0 rgba(255,255,255,0.15)" }}>
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Predict
+              </button>
+
+            </div>
           </div>
 
 
-          {/* CONTROLS */}
-
-          <div className="flex flex-col sm:flex-row gap-3">
-
-
-            {/* ==============================================
-                SEARCHABLE STOCK SELECTOR
-            ============================================== */}
-
-            <div className="relative w-full sm:w-80">
-
-              <div
-                className={`flex items-center bg-white border rounded-xl transition ${
-                  searchOpen
-                    ? "border-indigo-500 ring-2 ring-indigo-100"
-                    : "border-slate-200"
-                }`}
-              >
-
-                <Search
-                  className="w-4 h-4 text-slate-400 ml-4 flex-shrink-0"
-                />
-
-
-                <input
-                  type="text"
-                  value={
-                    searchOpen
-                      ? searchQuery
-                      : selectedStock.short_name ||
-                        selectedStock.symbol
-                  }
-                  onChange={(event) => {
-
-                    setSearchQuery(
-                      event.target.value
-                    );
-
-                    setSearchOpen(
-                      true
-                    );
-
-                  }}
-                  onFocus={() => {
-
-                    setSearchOpen(
-                      true
-                    );
-
-                  }}
-                  placeholder="Search stocks..."
-                  className="w-full px-3 py-3 bg-transparent text-sm font-medium text-slate-700 outline-none"
-                />
-
-
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={
-                      clearSearch
-                    }
-                    className="p-1 mr-1 rounded hover:bg-slate-100"
-                  >
-
-                    <X
-                      className="w-4 h-4 text-slate-400"
-                    />
-
-                  </button>
-                )}
-
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSearchOpen(
-                      !searchOpen
-                    )
-                  }
-                  className="p-3"
-                >
-
-                  <ChevronDown
-                    className={`w-4 h-4 text-slate-400 transition-transform ${
-                      searchOpen
-                        ? "rotate-180"
-                        : ""
-                    }`}
-                  />
-
-                </button>
-
-              </div>
-
-
-              {/* ============================================
-                  SEARCH RESULTS
-              ============================================ */}
-
-              {searchOpen && (
-
-                <>
-
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() =>
-                      setSearchOpen(
-                        false
-                      )
-                    }
-                  />
-
-
-                  <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-20 overflow-hidden">
-
-
-                    {/* SEARCH INPUT HINT */}
-
-                    <div className="px-4 py-3 border-b border-slate-100">
-
-                      <p className="text-xs text-slate-400">
-
-                        Search by company name or symbol
-
-                      </p>
-
-                    </div>
-
-
-                    {/* LOADING */}
-
-                    {searchLoading && (
-
-                      <div className="px-4 py-6 flex items-center justify-center gap-2 text-sm text-slate-500">
-
-                        <Loader2
-                          className="w-4 h-4 animate-spin"
-                        />
-
-                        Searching...
-
-                      </div>
-
-                    )}
-
-
-                    {/* RESULTS */}
-
-                    {!searchLoading &&
-                      searchQuery.trim() &&
-                      searchResults.length >
-                        0 && (
-
-                        <div className="max-h-80 overflow-y-auto">
-
-                          {searchResults.map(
-                            (stock) => (
-
-                              <button
-                                key={`${stock.symbol}-${stock.exchange}`}
-                                type="button"
-                                onClick={() =>
-                                  handleSelectStock(
-                                    stock
-                                  )
-                                }
-                                className="w-full text-left px-4 py-3 hover:bg-indigo-50 border-b border-slate-50 last:border-b-0 transition"
-                              >
-
-                                <div className="flex items-center justify-between gap-3">
-
-                                  <div className="min-w-0">
-
-                                    <p className="font-semibold text-sm text-slate-800 truncate">
-
-                                      {stock.short_name ||
-                                        stock.name}
-
-                                    </p>
-
-
-                                    <p className="text-xs text-slate-500 mt-1 truncate">
-
-                                      {stock.symbol}
-
-                                    </p>
-
-                                  </div>
-
-
-                                  <div className="flex-shrink-0 text-right">
-
-                                    <p className="text-[10px] font-semibold text-slate-400 uppercase">
-
-                                      {stock.exchange_display ||
-                                        stock.exchange ||
-                                        "Market"}
-
-                                    </p>
-
-                                    <p className="text-[10px] text-slate-400 mt-1">
-
-                                      {stock.quote_type}
-
-                                    </p>
-
-                                  </div>
-
-                                </div>
-
-                              </button>
-
-                            )
-                          )}
-
-                        </div>
-
-                      )}
-
-
-                    {/* NO RESULTS */}
-
-                    {!searchLoading &&
-                      searchQuery.trim() &&
-                      searchResults.length ===
-                        0 && (
-
-                        <div className="px-4 py-8 text-center">
-
-                          <Search
-                            className="w-8 h-8 mx-auto text-slate-300"
-                          />
-
-                          <p className="text-sm font-medium text-slate-600 mt-3">
-
-                            No stocks found
-
-                          </p>
-
-                          <p className="text-xs text-slate-400 mt-1">
-
-                            Try another company name or symbol
-
-                          </p>
-
-                        </div>
-
-                      )}
-
-
-                    {/* EMPTY SEARCH */}
-
-                    {!searchQuery.trim() && (
-
-                      <div className="px-4 py-6 text-center">
-
-                        <Search
-                          className="w-7 h-7 mx-auto text-slate-300"
-                        />
-
-                        <p className="text-sm text-slate-500 mt-2">
-
-                          Start typing to search
-
-                        </p>
-
-                      </div>
-
-                    )}
-
-                  </div>
-
-                </>
-
-              )}
-
-            </div>
-
-
-            {/* ==============================================
-                TIMEFRAME
-            ============================================== */}
-
-            <div className="relative">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setTimeframeOpen(
-                    !timeframeOpen
-                  )
-                }
-                className="flex items-center justify-between gap-8 w-full sm:w-36 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:border-indigo-300 transition"
-              >
-
-                <span>
-
-                  {
-                    TIMEFRAMES.find(
-                      (item) =>
-                        item.value ===
-                        timeframe
-                    )?.label
-                  }
-
-                </span>
-
-
-                <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${
-                    timeframeOpen
-                      ? "rotate-180"
-                      : ""
-                  }`}
-                />
-
-              </button>
-
-
-              {timeframeOpen && (
-
-                <div className="absolute right-0 top-full mt-2 w-full sm:w-36 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden">
-
-                  {TIMEFRAMES.map(
-                    (item) => (
-
-                      <button
-                        key={item.value}
-                        type="button"
-                        onClick={() => {
-
-                          setTimeframe(
-                            item.value
-                          );
-
-                          setTimeframeOpen(
-                            false
-                          );
-
-                          setPrediction(
-                            null
-                          );
-
-                        }}
-                        className={`w-full text-left px-4 py-3 text-sm transition ${
-                          timeframe ===
-                          item.value
-                            ? "bg-indigo-50 text-indigo-700 font-semibold"
-                            : "text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-
-                        {item.label}
-
-                      </button>
-
-                    )
-                  )}
-
-                </div>
-
-              )}
-
-            </div>
-
-
-            {/* ==============================================
-                REFRESH
-            ============================================== */}
-
-            <button
-              type="button"
-              onClick={
-                fetchPrediction
-              }
-              disabled={loading}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition"
-            >
-
-              {loading ? (
-
-                <Loader2
-                  className="w-4 h-4 animate-spin"
-                />
-
-              ) : (
-
-                <RefreshCw
-                  className="w-4 h-4"
-                />
-
-              )}
-
-              Refresh
-
-            </button>
-
+          {/* Chips row */}
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <Chip icon={<Database className="w-3 h-3" />} text={selectedStock.exchange_display || selectedStock.exchange} />
+            <Chip icon={<Layers className="w-3 h-3" />} text={selectedStock.quote_type} />
+            <Chip icon={<Cpu className="w-3 h-3" />} text="XGBoost Classifier" />
+            {lastUpdated && (
+              <Chip
+                icon={<Activity className="w-3 h-3" />}
+                text={`Updated ${formatTime(lastUpdated)}`}
+                color="rgba(16,185,129,0.12)"
+                border="rgba(16,185,129,0.25)"
+                textColor="text-emerald-300"
+              />
+            )}
+            {modelStatus === "TRAINING" && (
+              <Chip
+                icon={<Loader2 className="w-3 h-3 animate-spin" />}
+                text="Training model..."
+                color="rgba(245,158,11,0.12)"
+                border="rgba(245,158,11,0.25)"
+                textColor="text-amber-300"
+              />
+            )}
           </div>
 
         </div>
+      </div>
 
 
-        {/* ==================================================
-            ERROR
-        ================================================== */}
+      {/* =======================================================
+          BODY
+      ======================================================= */}
+      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-7 space-y-6">
 
+        {/* Error */}
         {error && (
+          <div className="flex items-start gap-3 p-4 rounded-2xl"
+            style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.20)" }}>
+            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-red-700">Prediction Error</p>
+              <p className="text-sm text-red-600 mt-1">{error}</p>
+            </div>
+          </div>
+        )}
 
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+        {/* Training */}
+        {modelStatus === "TRAINING" && !prediction && (
+          <div className="rounded-3xl p-12 md:p-16 text-center"
+            style={{ background: "var(--qn-surface)", border: "1px solid var(--qn-border)", boxShadow: "0 4px 24px rgba(79,70,229,0.06)" }}>
+            <div className="w-20 h-20 mx-auto rounded-2xl flex items-center justify-center" style={{ background: "rgba(99,102,241,0.08)" }}>
+              <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+            </div>
+            <h2 className="mt-6 text-xl font-bold text-slate-900">Preparing AI Model</h2>
+            <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto">
+              QuantNova is training an XGBoost model for{" "}
+              <strong className="text-slate-700">{selectedStock.symbol}</strong> on the{" "}
+              <strong className="text-slate-700">{timeframeCurrent?.label}</strong> timeframe.
+              This only happens once per stock/timeframe.
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+              <Activity className="w-4 h-4" />
+              Training in background — polling every 5 seconds...
+            </div>
+          </div>
+        )}
 
-            <AlertCircle
-              className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0"
+        {/* Empty */}
+        {!prediction && modelStatus !== "TRAINING" && !error && (
+          <div className="rounded-3xl p-12 text-center"
+            style={{ background: "var(--qn-surface)", border: "1px solid var(--qn-border)" }}>
+            <Brain className="w-12 h-12 mx-auto text-slate-300" />
+            <h2 className="mt-4 text-lg font-bold text-slate-700">
+              {loading ? "Loading AI prediction..." : "Ready for prediction"}
+            </h2>
+            <p className="text-sm text-slate-400 mt-2">
+              {loading
+                ? "Fetching market data and running the model..."
+                : `Click Predict to run the AI model for ${selectedStock.short_name || selectedStock.symbol}`}
+            </p>
+          </div>
+        )}
+
+        {/* PREDICTION DASHBOARD */}
+        {prediction && (
+          <div key={animKey} className="space-y-6 animate-fade-up">
+
+            {/* Row 1: Main prediction + Price + Donut */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+              {/* Main prediction card (dark gradient) */}
+              <div className="lg:col-span-1 rounded-3xl p-7 flex flex-col justify-between relative overflow-hidden"
+                style={{
+                  background: `linear-gradient(135deg, ${dirConf.darkGrad})`,
+                  boxShadow: `0 8px 40px ${dirConf.darkGlow}`,
+                }}>
+                {/* bg orb */}
+                <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full pointer-events-none"
+                  style={{ background: `radial-gradient(circle, ${dirConf.fill} 0%, transparent 68%)`, opacity: 0.22 }} />
+
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.12)" }}>
+                      <Brain className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-white/60">AI Direction</span>
+                  </div>
+                  <div className="text-6xl font-black text-white tracking-tight leading-none">
+                    {prediction.prediction}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    {prediction.prediction === "UP"   && <TrendingUp   className="w-5 h-5 text-emerald-300" />}
+                    {prediction.prediction === "DOWN" && <TrendingDown  className="w-5 h-5 text-red-300" />}
+                    {prediction.prediction === "HOLD" && <Minus         className="w-5 h-5 text-amber-300" />}
+                    <span className="text-sm text-white/70">{dirConf.signalLabel}</span>
+                  </div>
+                </div>
+
+                <div className="relative mt-7 pt-7 border-t border-white/10">
+                  <p className="text-xs text-white/50 uppercase tracking-wider font-semibold mb-1">Model Confidence</p>
+                  <div className="text-3xl font-bold text-white">{prediction.probability_percent}%</div>
+                  <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.10)" }}>
+                    <div className="h-full rounded-full transition-all duration-1000"
+                      style={{ width: `${prediction.probability_percent}%`, background: "rgba(255,255,255,0.55)" }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Price + timestamp */}
+              <div className="lg:col-span-1 flex flex-col gap-4">
+                <div className="qn-card flex-1 p-6 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Current Price</p>
+                      <p className="text-3xl font-bold text-slate-900 mt-2">{formatPrice(prediction.current_price)}</p>
+                    </div>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "rgba(79,70,229,0.07)" }}>
+                      <Activity className="w-5 h-5 text-indigo-600" />
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <p className="text-xs text-slate-400">Today's Change</p>
+                    <span className={`flex items-center gap-1 text-lg font-bold ${Number(prediction.daily_change_percent) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                      {Number(prediction.daily_change_percent) >= 0
+                        ? <ArrowUpRight className="w-5 h-5" />
+                        : <ArrowDownRight className="w-5 h-5" />}
+                      {formatPercent(prediction.daily_change_percent)}
+                    </span>
+                  </div>
+                </div>
+                <div className="qn-card p-4 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(79,70,229,0.07)" }}>
+                    <Clock className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Data As Of</p>
+                    <p className="text-sm font-semibold text-slate-700 truncate mt-0.5">
+                      {prediction.prediction_time
+                        ? new Date(prediction.prediction_time).toLocaleString("en-IN", {
+                            day: "2-digit", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })
+                        : "--"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Confidence donut */}
+              <div className="lg:col-span-1 qn-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="font-bold text-slate-900">Confidence Breakdown</h2>
+                    <p className="text-xs text-slate-400 mt-0.5">XGBoost class probabilities</p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest text-indigo-600"
+                    style={{ background: "rgba(79,70,229,0.07)" }}>Live</span>
+                </div>
+                <div className="h-40">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: "UP",   value: Number((prediction.probabilities?.UP   || 0) * 100) },
+                          { name: "HOLD", value: Number((prediction.probabilities?.HOLD || 0) * 100) },
+                          { name: "DOWN", value: Number((prediction.probabilities?.DOWN || 0) * 100) },
+                        ]}
+                        cx="50%" cy="50%" innerRadius={42} outerRadius={65}
+                        dataKey="value" paddingAngle={3} strokeWidth={0}
+                      >
+                        <Cell key="UP"   fill="#10b981" />
+                        <Cell key="HOLD" fill="#f59e0b" />
+                        <Cell key="DOWN" fill="#ef4444" />
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => [`${Number(v).toFixed(2)}%`, ""]}
+                        contentStyle={{ background: "#1e293b", border: "none", borderRadius: "12px", color: "#f1f5f9", fontSize: "12px", fontWeight: 600 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-2.5 mt-2">
+                  {[
+                    { dir: "UP",   conf: DIRECTION_CONFIG.UP },
+                    { dir: "HOLD", conf: DIRECTION_CONFIG.HOLD },
+                    { dir: "DOWN", conf: DIRECTION_CONFIG.DOWN },
+                  ].map(({ dir, conf }) => {
+                    const val = Number((prediction.probabilities?.[dir] || 0) * 100);
+                    const Icon = conf.icon;
+                    return (
+                      <div key={dir} className="flex items-center gap-2">
+                        <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${conf.textClass}`} />
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${conf.barClass} transition-all duration-700`}
+                            style={{ width: `${Math.min(100, val)}%` }} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-600 w-12 text-right tabular-nums">{val.toFixed(1)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
+
+            {/* Row 2: Performance metrics */}
+            <PerformanceMetricsRow
+              predictionPerformance={predictionPerformance}
+              predictionHistory={predictionHistory}
             />
 
-            <div>
 
-              <p className="font-semibold text-red-800">
+            {/* Row 3: Per-direction accuracy */}
+            {predictionPerformance?.by_direction && predictionPerformance.total_predictions > 0 && (
+              <PerDirectionAccuracy byDirection={predictionPerformance.by_direction} />
+            )}
 
-                Prediction Error
 
+            {/* Disclaimer */}
+            <div className="rounded-2xl p-4 flex items-start gap-3"
+              style={{ background: "rgba(79,70,229,0.035)", border: "1px solid rgba(79,70,229,0.10)" }}>
+              <Shield className="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-slate-500 leading-5">
+                <strong className="text-slate-600">Disclaimer:</strong>{" "}
+                Predictions are generated by an experimental XGBoost model using historical market data and
+                technical features. Model probabilities are not guarantees of future price movement.
+                Do not use as sole basis for investment decisions.
               </p>
-
-              <p className="text-sm text-red-700 mt-1">
-
-                {error}
-
-              </p>
-
             </div>
 
           </div>
-
         )}
 
 
-        {/* ==================================================
-            TRAINING
-        ================================================== */}
-
-        {modelStatus ===
-          "TRAINING" &&
-          !prediction && (
-
-            renderTrainingState()
-
-        )}
-
-
-        {/* ==================================================
-            PREDICTION
-        ================================================== */}
-
-        {prediction && (
-
-          <>
-
-            {/* =================================================
-                TOP SUMMARY
-            ================================================= */}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-
-              {/* MAIN PREDICTION */}
-
-              <div
-                className={`lg:col-span-2 rounded-3xl border border-slate-200 p-6 md:p-8 ${getPredictionBackground()}`}
-              >
-
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-
-                  <div>
-
-                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
-
-                      <Activity
-                        className="w-4 h-4"
-                      />
-
-                      AI Direction Prediction
-
-                    </div>
-
-
-                    <div
-                      className={`flex items-center gap-4 ${getPredictionColor()}`}
-                    >
-
-                      {getPredictionIcon()}
-
-
-                      <div>
-
-                        <div className="text-4xl md:text-5xl font-bold">
-
-                          {
-                            prediction.prediction
-                          }
-
-                        </div>
-
-
-                        <div className="text-sm text-slate-500 mt-1">
-
-                          Model probability
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-
-                  <div className="text-left md:text-right">
-
-                    <div className="text-4xl font-bold text-slate-900">
-
-                      {
-                        prediction.probability_percent
-                      }%
-
-                    </div>
-
-
-                    <div className="text-sm text-slate-500 mt-1">
-
-                      Predicted class probability
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* PRICE */}
-
-              <div className="bg-white rounded-3xl border border-slate-200 p-6">
-
-                <div className="flex items-center justify-between">
-
-                  <div>
-
-                    <p className="text-sm text-slate-500">
-
-                      Current Price
-
-                    </p>
-
-
-                    <p className="text-3xl font-bold text-slate-900 mt-2">
-
-                      {formatPrice(
-                        prediction.current_price
-                      )}
-
-                    </p>
-
-                  </div>
-
-
-                  <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center">
-
-                    <Activity
-                      className="w-5 h-5 text-indigo-600"
-                    />
-
-                  </div>
-
-                </div>
-
-
-                <div className="mt-5 pt-5 border-t border-slate-100">
-
-                  <p className="text-sm text-slate-500">
-
-                    Today's Change
-
-                  </p>
-
-
-                  <p
-                    className={`text-xl font-bold mt-1 ${
-                      Number(
-                        prediction.daily_change_percent
-                      ) >= 0
-                        ? "text-emerald-600"
-                        : "text-red-600"
-                    }`}
-                  >
-
-                    {formatPercent(
-                      prediction.daily_change_percent
-                    )}
-
-                  </p>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* =================================================
-                PROBABILITIES
-            ================================================= */}
-
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 mb-6">
-
-              <div className="flex items-center justify-between mb-6">
-
-                <div>
-
-                  <h2 className="text-lg font-bold text-slate-900">
-
-                    Prediction Probabilities
-
-                  </h2>
-
-
-                  <p className="text-sm text-slate-500 mt-1">
-
-                    XGBoost output across all three classes
-
-                  </p>
-
-                </div>
-
-
-                <div className="px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600">
-
-                  XGBoost
-
-                </div>
-
-              </div>
-
-
-              <div className="space-y-5">
-
-
-                {/* DOWN */}
-
-                <ProbabilityBar
-                  label="DOWN"
-                  value={getProbability(
-                    "DOWN"
-                  )}
-                  icon={
-                    <TrendingDown className="w-4 h-4 text-red-500" />
-                  }
-                  barClass="bg-red-500"
-                />
-
-
-                {/* HOLD */}
-
-                <ProbabilityBar
-                  label="HOLD"
-                  value={getProbability(
-                    "HOLD"
-                  )}
-                  icon={
-                    <Minus className="w-4 h-4 text-amber-500" />
-                  }
-                  barClass="bg-amber-500"
-                />
-
-
-                {/* UP */}
-
-                <ProbabilityBar
-                  label="UP"
-                  value={getProbability(
-                    "UP"
-                  )}
-                  icon={
-                    <TrendingUp className="w-4 h-4 text-emerald-500" />
-                  }
-                  barClass="bg-emerald-500"
-                />
-
-              </div>
-
-            </div>
-
-
-            {/* =================================================
-                MODEL INFO
-            ================================================= */}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-
-
-              <InfoCard
-                title="Asset"
-                value={
-                  selectedStock.short_name ||
-                  selectedStock.name ||
-                  prediction.symbol
-                }
-                subtitle={
-                  prediction.symbol
-                }
-              />
-
-
-              <InfoCard
-                title="Timeframe"
-                value={
-                  prediction.timeframe
-                }
-                subtitle="Prediction interval"
-              />
-
-
-              <InfoCard
-                title="Model"
-                value={
-                  prediction.model?.type ||
-                  "XGBoost"
-                }
-                subtitle="3-class classifier"
-              />
-
-            </div>
-
-
-            {/* =================================================
-                FOOTER
-            ================================================= */}
-
-            <div className="bg-white rounded-2xl border border-slate-200 p-5">
-
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-
-                  <Clock
-                    className="w-4 h-4"
-                  />
-
-                  Market data:
-
-                  <span className="font-medium text-slate-700">
-
-                    {
-                      prediction.prediction_time ||
-                      "--"
-                    }
-
-                  </span>
-
-                </div>
-
-
-                <div className="text-sm text-slate-500">
-
-                  Last refresh:
-
-                  <span className="font-medium text-slate-700 ml-1">
-
-                    {formatTime(
-                      lastUpdated
-                    )}
-
-                  </span>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* =================================================
-                DISCLAIMER
-            ================================================= */}
-
-            <div className="mt-6 p-4 rounded-2xl bg-slate-100 border border-slate-200">
-
-              <p className="text-xs leading-5 text-slate-500">
-
-                <strong className="text-slate-700">
-
-                  Model information:
-
-                </strong>{" "}
-
-                This prediction is generated by an
-                experimental XGBoost model using historical
-                market data and technical features.
-                Model probabilities are not guarantees of
-                future price movement.
-
-              </p>
-
-            </div>
-
-          </>
-
-        )}
-
-
-        {/* ==================================================
-            EMPTY STATE
-        ================================================== */}
-
-        {!prediction &&
-          modelStatus !==
-            "TRAINING" &&
-          !error && (
-
-            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
-
-              <Brain
-                className="w-12 h-12 mx-auto text-slate-300"
-              />
-
-              <h2 className="mt-4 text-lg font-bold text-slate-700">
-
-                Loading AI prediction...
-
-              </h2>
-
-              <p className="text-sm text-slate-500 mt-2">
-
-                Preparing market data and model.
-
-              </p>
-
-            </div>
-
-          )}
-
-        <PredictionHistory
-          selectedStock={selectedStock}
+        {/* =======================================================
+            PREDICTION HISTORY
+        ======================================================= */}
+        <PredictionHistoryTable
           fetchPredictionHistory={fetchPredictionHistory}
           historyLoading={historyLoading}
           verifyLoading={verifyLoading}
           handleVerifyPredictions={handleVerifyPredictions}
-          predictionPerformance={predictionPerformance}
           predictionHistory={predictionHistory}
           historyError={historyError}
+          pendingCount={pendingCount}
         />
 
       </div>
-
     </div>
   );
 };
 
 
 // ============================================================
-// PROBABILITY BAR
+// CHIP
 // ============================================================
 
-const ProbabilityBar = ({
-  label,
-  value,
+const Chip = ({
   icon,
-  barClass,
+  text,
+  color = "rgba(255,255,255,0.08)",
+  border = "rgba(255,255,255,0.12)",
+  textColor = "text-slate-200",
 }) => (
+  <span
+    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${textColor}`}
+    style={{ background: color, border: `1px solid ${border}` }}
+  >
+    {icon}{text}
+  </span>
+);
 
-  <div>
 
-    <div className="flex justify-between items-center mb-2">
+// ============================================================
+// PERFORMANCE METRICS ROW
+// ============================================================
 
-      <div className="flex items-center gap-2">
-
-        {icon}
-
-        <span className="text-sm font-semibold text-slate-700">
-
-          {label}
-
-        </span>
-
+const MetricCard = ({ icon: Icon, iconColor, iconBg, title, value, subtitle, accentBorder }) => (
+  <div className="qn-card p-5 flex flex-col" style={accentBorder ? { borderColor: accentBorder } : {}}>
+    <div className="flex items-center justify-between mb-3">
+      <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">{title}</p>
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: iconBg }}>
+        <Icon className={`w-4 h-4 ${iconColor}`} />
       </div>
-
-
-      <span className="text-sm font-bold text-slate-900">
-
-        {Number(
-          value
-        ).toFixed(2)}%
-
-      </span>
-
     </div>
+    <p className="text-2xl font-black text-slate-900 tracking-tight animate-count-up">{value}</p>
+    <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
+  </div>
+);
 
+const PerformanceMetricsRow = ({ predictionPerformance, predictionHistory }) => {
+  const total    = predictionHistory.length;
+  const verified = predictionPerformance?.total_predictions   ?? 0;
+  const correct  = predictionPerformance?.correct_predictions ?? 0;
+  const accuracy = predictionPerformance?.accuracy;
 
-    <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-
-      <div
-        className={`h-full rounded-full transition-all duration-700 ${barClass}`}
-        style={{
-          width: `${Math.min(
-            100,
-            Math.max(
-              0,
-              value
-            )
-          )}%`,
-        }}
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <MetricCard
+        icon={Database} iconColor="text-indigo-600" iconBg="rgba(79,70,229,0.07)"
+        title="Total Predictions" value={total} subtitle="All saved predictions"
       />
-
+      <MetricCard
+        icon={Target} iconColor="text-violet-600" iconBg="rgba(139,92,246,0.07)"
+        title="Verified" value={verified} subtitle="Outcome confirmed"
+      />
+      <MetricCard
+        icon={CheckCircle2} iconColor="text-emerald-600" iconBg="rgba(16,185,129,0.07)"
+        title="Correct" value={correct} subtitle="Accurate predictions"
+        accentBorder="rgba(16,185,129,0.22)"
+      />
+      <MetricCard
+        icon={Zap} iconColor="text-amber-600" iconBg="rgba(245,158,11,0.07)"
+        title="Accuracy"
+        value={accuracy != null ? `${Number(accuracy).toFixed(1)}%` : "--"}
+        subtitle={verified > 0 ? `Over ${verified} verified` : "No verified data"}
+        accentBorder={
+          accuracy != null
+            ? accuracy >= 60 ? "rgba(16,185,129,0.22)"
+              : accuracy >= 45 ? "rgba(245,158,11,0.22)"
+              : "rgba(239,68,68,0.22)"
+            : undefined
+        }
+      />
     </div>
+  );
+};
 
+
+// ============================================================
+// PER-DIRECTION ACCURACY
+// ============================================================
+
+const PerDirectionAccuracy = ({ byDirection }) => (
+  <div className="rounded-3xl p-6 md:p-7"
+    style={{ background: "var(--qn-surface)", border: "1px solid var(--qn-border)" }}>
+    <div className="flex items-center gap-2 mb-5">
+      <BarChart3 className="w-5 h-5 text-indigo-500" />
+      <div>
+        <h2 className="font-bold text-slate-900">Per-Direction Accuracy</h2>
+        <p className="text-xs text-slate-400 mt-0.5">Breakdown of model accuracy by prediction class</p>
+      </div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {["UP", "HOLD", "DOWN"].map((dir) => {
+        const conf  = DIRECTION_CONFIG[dir];
+        const Icon  = conf.icon;
+        const stats = byDirection?.[dir] || { total: 0, correct: 0, accuracy: null };
+        const pct   = stats.accuracy ?? 0;
+        return (
+          <div key={dir} className="rounded-2xl p-4"
+            style={{ background: "var(--qn-surface-2)", border: "1px solid var(--qn-border)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(0,0,0,0.04)" }}>
+                  <Icon className={`w-4 h-4 ${conf.textClass}`} />
+                </div>
+                <span className="font-bold text-slate-800">{dir}</span>
+              </div>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${
+                stats.total > 0 ? conf.badgeClass : "bg-slate-100 text-slate-400 border-slate-200"
+              }`}>
+                {stats.total} predictions
+              </span>
+            </div>
+            <div>
+              <div className="flex items-end justify-between mb-1.5">
+                <span className="text-xs text-slate-400">Accuracy</span>
+                <span className={`text-xl font-black ${
+                  stats.accuracy != null ? conf.textClass : "text-slate-300"
+                }`}>
+                  {stats.accuracy != null ? `${Number(stats.accuracy).toFixed(1)}%` : "--"}
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div className={`h-full rounded-full ${conf.barClass} transition-all duration-700`}
+                  style={{ width: `${Math.min(100, pct)}%` }} />
+              </div>
+              <div className="flex justify-between text-xs text-slate-400 mt-1.5">
+                <span>{stats.correct} correct</span>
+                <span>{stats.total - stats.correct} wrong</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   </div>
 );
 
 
 // ============================================================
-// INFO CARD
+// PREDICTION HISTORY TABLE
 // ============================================================
 
-const InfoCard = ({
-  title,
-  value,
-  subtitle,
-}) => (
-
-  <div className="bg-white rounded-2xl border border-slate-200 p-5">
-
-    <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
-
-      {title}
-
-    </p>
-
-
-    <p className="text-lg font-bold text-slate-900 mt-2 truncate">
-
-      {value}
-
-    </p>
-
-
-    <p className="text-sm text-slate-500 mt-1">
-
-      {subtitle}
-
-    </p>
-
-  </div>
-);
-
-
-// ============================================================
-// PREDICTION HISTORY
-// ============================================================
-
-const PredictionHistory = ({
-  selectedStock,
+const PredictionHistoryTable = ({
   fetchPredictionHistory,
   historyLoading,
   verifyLoading,
   handleVerifyPredictions,
-  predictionPerformance,
   predictionHistory,
   historyError,
+  pendingCount,
 }) => (
-  <>
-{/* ============================================================
-    PREDICTION PERFORMANCE
-============================================================ */}
+  <div className="rounded-3xl overflow-hidden"
+    style={{ background: "var(--qn-surface)", border: "1px solid var(--qn-border)" }}>
 
-<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
-  {/* TOTAL SAVED PREDICTIONS */}
-
-  <InfoCard
-    title="Predictions"
-    value={predictionHistory.length}
-    subtitle="Total saved"
-  />
-
-
-  {/* VERIFIED PREDICTIONS */}
-
-  <InfoCard
-    title="Verified"
-    value={
-      predictionPerformance?.total_predictions ?? 0
-    }
-    subtitle="Completed predictions"
-  />
-
-
-  {/* CORRECT PREDICTIONS */}
-
-  <InfoCard
-    title="Correct"
-    value={
-      predictionPerformance?.correct_predictions ?? 0
-    }
-    subtitle="Correct predictions"
-  />
-
-
-  {/* ACCURACY */}
-
-  <InfoCard
-    title="Accuracy"
-    value={
-      predictionPerformance?.accuracy != null
-        ? `${Number(
-            predictionPerformance.accuracy
-          ).toFixed(2)}%`
-        : "--"
-    }
-    subtitle="Verified predictions only"
-  />
-
-</div>
-{/* ============================================================
-    PREDICTION HISTORY
-============================================================ */}
-
-<div className="mt-8">
-
-  <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
-
-    {/* HEADER */}
-
-    <div className="px-6 py-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
+    {/* Header */}
+    <div className="px-6 py-5 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+      style={{ borderColor: "var(--qn-border)" }}>
       <div>
-        <h2 className="text-xl font-bold text-slate-900">
-          Prediction History
-        </h2>
-
-        <p className="text-sm text-slate-500 mt-1">
+        <h2 className="text-xl font-bold text-slate-900">Prediction History</h2>
+        <p className="text-sm text-slate-400 mt-0.5 flex items-center gap-2">
           Historical AI predictions and their verified outcomes
+          {pendingCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-xs font-bold border border-amber-200">
+              {pendingCount} pending
+            </span>
+          )}
         </p>
       </div>
-
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleVerifyPredictions}
-          disabled={verifyLoading || historyLoading}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95"
-          title="Verify pending predictions against latest market closing data"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${verifyLoading ? "animate-spin" : ""}`} />
+        <button type="button" onClick={fetchPredictionHistory} disabled={historyLoading}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 transition border hover:bg-slate-50 disabled:opacity-50"
+          style={{ border: "1px solid var(--qn-border)" }}>
+          <RefreshCw className={`w-3.5 h-3.5 ${historyLoading ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+        <button type="button" onClick={handleVerifyPredictions} disabled={verifyLoading || historyLoading}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+          style={{ background: "linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%)", color: "#fff", boxShadow: "0 4px 12px rgba(79,70,229,0.25)" }}>
+          <CheckCircle2 className={`w-3.5 h-3.5 ${verifyLoading ? "animate-spin" : ""}`} />
           {verifyLoading ? "Verifying..." : "Verify Outcomes"}
         </button>
       </div>
-
     </div>
 
-
-    {/* ERROR */}
-
+    {/* Error */}
     {historyError && (
-
-      <div className="m-5 p-4 rounded-xl bg-red-50 border border-red-200 flex items-center gap-3">
-
+      <div className="m-5 p-4 rounded-xl flex items-center gap-3"
+        style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)" }}>
         <AlertCircle className="w-5 h-5 text-red-500" />
-
-        <p className="text-sm text-red-700">
-          {historyError}
-        </p>
-
+        <p className="text-sm text-red-700">{historyError}</p>
       </div>
-
     )}
 
-
-    {/* LOADING */}
-
+    {/* Loading */}
     {historyLoading && predictionHistory.length === 0 && (
-
-      <div className="py-12 flex justify-center items-center gap-3 text-sm text-slate-500">
-
+      <div className="py-16 flex justify-center items-center gap-3 text-sm text-slate-400">
         <Loader2 className="w-5 h-5 animate-spin" />
-
         Loading prediction history...
-
       </div>
-
     )}
 
+    {/* Empty */}
+    {!historyLoading && predictionHistory.length === 0 && !historyError && (
+      <div className="py-16 text-center">
+        <Clock className="w-10 h-10 mx-auto text-slate-300" />
+        <p className="mt-3 text-sm font-semibold text-slate-600">No prediction history yet</p>
+        <p className="mt-1 text-xs text-slate-400">Predictions will appear here automatically after running the AI model.</p>
+      </div>
+    )}
 
-    {/* EMPTY */}
-
-    {!historyLoading &&
-      predictionHistory.length === 0 &&
-      !historyError && (
-
-        <div className="py-12 text-center">
-
-          <Clock className="w-10 h-10 mx-auto text-slate-300" />
-
-          <p className="mt-3 text-sm font-semibold text-slate-600">
-            No prediction history yet
-          </p>
-
-          <p className="mt-1 text-xs text-slate-400">
-            Predictions will appear here automatically.
-          </p>
-
-        </div>
-
-      )}
-
-
-    {/* TABLE */}
-
+    {/* Table */}
     {predictionHistory.length > 0 && (
-
       <div className="overflow-x-auto">
-
         <table className="w-full text-sm">
-
           <thead>
-
-            <tr className="bg-slate-50 border-b border-slate-200">
-
-              <th className="px-5 py-4 text-left font-semibold text-slate-500">
-                Date
-              </th>
-
-              <th className="px-5 py-4 text-left font-semibold text-slate-500">
-                Prediction
-              </th>
-
-              <th className="px-5 py-4 text-left font-semibold text-slate-500">
-                Probability
-              </th>
-
-              <th className="px-5 py-4 text-left font-semibold text-slate-500">
-                Prediction Price
-              </th>
-
-              <th className="px-5 py-4 text-left font-semibold text-slate-500">
-                Actual Price
-              </th>
-
-              <th className="px-5 py-4 text-left font-semibold text-slate-500">
-                Actual
-              </th>
-
-              <th className="px-5 py-4 text-left font-semibold text-slate-500">
-                Result
-              </th>
-
+            <tr style={{ background: "var(--qn-surface-2)", borderBottom: "1px solid var(--qn-border)" }}>
+              {["Date", "Prediction", "Confidence", "Entry Price", "Actual Price", "Return", "Result"].map((h) => (
+                <th key={h} className="px-5 py-3.5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  {h}
+                </th>
+              ))}
             </tr>
-
           </thead>
-
-
           <tbody>
+            {predictionHistory.map((item, idx) => {
+              const predDir = item.prediction;
+              const conf    = DIRECTION_CONFIG[predDir] || DEFAULT_DIR;
+              const actConf = item.actual_direction ? (DIRECTION_CONFIG[item.actual_direction] || DEFAULT_DIR) : null;
+              const result  = item.is_correct;
+              const prob    = item.probability != null ? (Number(item.probability) * 100).toFixed(1) : null;
 
-            {predictionHistory.map(
-              (item) => {
+              return (
+                <tr key={item.id}
+                  className="border-b transition-colors hover:bg-slate-50/60"
+                  style={{ borderColor: "var(--qn-border)" }}>
 
-                const predictionValue =
-                  item.prediction;
+                  {/* Date */}
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    <p className="font-semibold text-slate-700">{formatDate(item.prediction_time)}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{item.timeframe?.toUpperCase() || "--"}</p>
+                  </td>
 
-                const result =
-                  item.is_correct;
+                  {/* Prediction badge */}
+                  <td className="px-5 py-4">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${conf.badgeClass}`}>
+                      {predDir}
+                    </span>
+                  </td>
 
-                return (
+                  {/* Confidence bar */}
+                  <td className="px-5 py-4">
+                    {prob != null ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${conf.barClass}`}
+                            style={{ width: `${Math.min(100, Number(prob))}%` }} />
+                        </div>
+                        <span className="text-xs font-bold text-slate-600 tabular-nums">{prob}%</span>
+                      </div>
+                    ) : <span className="text-slate-300">--</span>}
+                  </td>
 
-                  <tr
-                    key={item.id}
-                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition"
-                  >
+                  {/* Entry price */}
+                  <td className="px-5 py-4 font-semibold text-slate-700 tabular-nums whitespace-nowrap">
+                    {item.prediction_price != null ? formatPrice(item.prediction_price) : "--"}
+                  </td>
 
-                    {/* DATE */}
+                  {/* Actual price */}
+                  <td className="px-5 py-4 font-semibold text-slate-700 tabular-nums whitespace-nowrap">
+                    {item.actual_price != null
+                      ? formatPrice(item.actual_price)
+                      : <span className="text-slate-300 font-normal">Pending</span>}
+                  </td>
 
-                    <td className="px-5 py-4 whitespace-nowrap">
-
-                      <p className="font-medium text-slate-700">
-                        {item.prediction_time
-                          ? new Date(
-                              item.prediction_time
-                            ).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              }
-                            )
-                          : "--"}
-                      </p>
-
-                    </td>
-
-
-                    {/* PREDICTION */}
-
-                    <td className="px-5 py-4">
-
-                      <span
-                        className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
-                          predictionValue === "UP"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : predictionValue === "DOWN"
-                            ? "bg-red-50 text-red-700"
-                            : "bg-amber-50 text-amber-700"
-                        }`}
-                      >
-
-                        {predictionValue}
-
-                      </span>
-
-                    </td>
-
-
-                    {/* PROBABILITY */}
-
-                    <td className="px-5 py-4 font-semibold text-slate-700">
-
-                      {item.probability != null
-                        ? `${(
-                            Number(
-                              item.probability
-                            ) * 100
-                          ).toFixed(2)}%`
-                        : "--"}
-
-                    </td>
-
-
-                    {/* PREDICTION PRICE */}
-
-                    <td className="px-5 py-4 font-medium text-slate-700">
-
-                      {item.prediction_price != null
-                        ? `₹${Number(
-                            item.prediction_price
-                          ).toLocaleString(
-                            "en-IN",
-                            {
-                              minimumFractionDigits: 2,
-                            }
-                          )}`
-                        : "--"}
-
-                    </td>
-
-
-                    {/* ACTUAL PRICE */}
-
-                    <td className="px-5 py-4 font-medium text-slate-700">
-
-                      {item.actual_price != null
-                        ? `₹${Number(
-                            item.actual_price
-                          ).toLocaleString(
-                            "en-IN",
-                            {
-                              minimumFractionDigits: 2,
-                            }
-                          )}`
-                        : (
-                          <span className="text-slate-400">
-                            Pending
+                  {/* Actual direction + return */}
+                  <td className="px-5 py-4">
+                    {item.actual_direction ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`font-bold text-xs ${actConf?.textClass || "text-slate-500"}`}>
+                          {item.actual_direction}
+                        </span>
+                        {item.actual_return_percent != null && (
+                          <span className={`text-[11px] font-semibold tabular-nums ${Number(item.actual_return_percent) >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                            {formatPercent(item.actual_return_percent)}
                           </span>
                         )}
+                      </div>
+                    ) : (
+                      <span className="text-slate-300 text-xs">Pending</span>
+                    )}
+                  </td>
 
-                    </td>
+                  {/* Result badge */}
+                  <td className="px-5 py-4">
+                    {result === true ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Correct
+                      </span>
+                    ) : result === false ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold border border-red-200">
+                        <X className="w-3.5 h-3.5" /> Wrong
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold border border-slate-200">
+                        <Clock className="w-3.5 h-3.5" /> Pending
+                      </span>
+                    )}
+                  </td>
 
-
-                    {/* ACTUAL DIRECTION */}
-
-                    <td className="px-5 py-4">
-
-                      {item.actual_direction ? (
-
-                        <span
-                          className={`font-bold ${
-                            item.actual_direction === "UP"
-                              ? "text-emerald-600"
-                              : item.actual_direction === "DOWN"
-                              ? "text-red-600"
-                              : "text-amber-600"
-                          }`}
-                        >
-
-                          {item.actual_direction}
-
-                        </span>
-
-                      ) : (
-
-                        <span className="text-slate-400">
-                          Pending
-                        </span>
-
-                      )}
-
-                    </td>
-
-
-                    {/* RESULT */}
-
-                    <td className="px-5 py-4">
-
-                      {result === true ? (
-
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Correct
-                        </span>
-
-                      ) : result === false ? (
-
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold border border-red-200">
-                          <X className="w-3.5 h-3.5 text-red-600" />
-                          Wrong
-                        </span>
-
-                      ) : (
-
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold border border-slate-200">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          Pending
-                        </span>
-
-                      )}
-
-                    </td>
-
-                  </tr>
-
-                );
-
-              }
-            )}
-
+                </tr>
+              );
+            })}
           </tbody>
-
         </table>
-
       </div>
-
     )}
 
   </div>
-
-</div>
-
-  </>
 );
+
 
 export default Prediction;
