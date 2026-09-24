@@ -470,25 +470,30 @@ const Prediction = () => {
 
           {/* Chips row */}
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <Chip icon={<Database className="w-3 h-3" />} text={selectedStock.exchange_display || selectedStock.exchange} />
-            <Chip icon={<Layers className="w-3 h-3" />} text={selectedStock.quote_type} />
+            <Chip
+              icon={<span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
+              text={modelStatus === "TRAINING" ? "Model Training" : "Model Ready"}
+              color="rgba(16,185,129,0.15)"
+              border="rgba(16,185,129,0.30)"
+              textColor="text-emerald-300"
+            />
+            <Chip
+              icon={<Sparkles className="w-3 h-3" />}
+              text={`${selectedStock.symbol} · ${timeframeCurrent?.label || timeframe}`}
+            />
+            <Chip
+              icon={<Clock className="w-3 h-3" />}
+              text="Training period: 10 Years"
+            />
             <Chip icon={<Cpu className="w-3 h-3" />} text="XGBoost Classifier" />
+            <Chip icon={<Database className="w-3 h-3" />} text={selectedStock.exchange_display || selectedStock.exchange} />
             {lastUpdated && (
               <Chip
                 icon={<Activity className="w-3 h-3" />}
                 text={`Updated ${formatTime(lastUpdated)}`}
-                color="rgba(16,185,129,0.12)"
-                border="rgba(16,185,129,0.25)"
-                textColor="text-emerald-300"
-              />
-            )}
-            {modelStatus === "TRAINING" && (
-              <Chip
-                icon={<Loader2 className="w-3 h-3 animate-spin" />}
-                text="Training model..."
-                color="rgba(245,158,11,0.12)"
-                border="rgba(245,158,11,0.25)"
-                textColor="text-amber-300"
+                color="rgba(56,189,248,0.12)"
+                border="rgba(56,189,248,0.25)"
+                textColor="text-sky-300"
               />
             )}
           </div>
@@ -601,7 +606,7 @@ const Prediction = () => {
                 <div className="qn-card flex-1 p-6 flex flex-col justify-between">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Current Price</p>
+                      <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Prediction Price</p>
                       <p className="text-3xl font-bold text-slate-900 mt-2">{formatPrice(prediction.current_price)}</p>
                     </div>
                     <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "rgba(79,70,229,0.07)" }}>

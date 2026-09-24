@@ -1,167 +1,168 @@
+import React from "react";
+import { Wallet, CircleDollarSign, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import StatCard from "@/components/common/StatCard";
+import PnlBadge, { formatINR, formatPnlINR } from "@/components/common/PnlBadge";
+
 export default function PortfolioSummary({
-  holdings,
-  marketData,
-  loading,
+  holdings = [],
+  marketData = {},
+  loading = false,
 }) {
   // Total amount invested
   const totalInvestment = holdings.reduce(
-    (total, stock) =>
-      total + stock.quantity * stock.averagePrice,
+    (total, stock) => total + (stock.quantity || 0) * (stock.averagePrice || 0),
     0
   );
 
   // Current market value
-  const currentValue = holdings.reduce(
-    (total, stock) => {
-      const data = marketData[stock.symbol];
-
-      if (
-        !data ||
-        typeof data.currentPrice !== "number"
-      ) {
-        return total;
-      }
-
-      return (
-        total +
-        stock.quantity * data.currentPrice
-      );
-    },
-    0
-  );
+  const currentValue = holdings.reduce((total, stock) => {
+    const data = marketData[stock.symbol];
+    if (!data || typeof data.currentPrice !== "number") {
+      return total;
+    }
+    return total + (stock.quantity || 0) * data.currentPrice;
+  }, 0);
 
   // Overall P&L
-  const overallPnl =
-    currentValue - totalInvestment;
-
+  const overallPnl = currentValue - totalInvestment;
   const overallPnlPercent =
-    totalInvestment > 0
-      ? (overallPnl / totalInvestment) * 100
-      : 0;
+    totalInvestment > 0 ? (overallPnl / totalInvestment) * 100 : 0;
 
   // Yesterday's market value
-  const yesterdayValue = holdings.reduce(
-    (total, stock) => {
-      const data = marketData[stock.symbol];
-
-      if (
-        !data ||
-        typeof data.previousClose !== "number"
-      ) {
-        return total;
-      }
-
-      return total + data.previousClose * stock.quantity;
-    },
-    0
-  );
+  const yesterdayValue = holdings.reduce((total, stock) => {
+    const data = marketData[stock.symbol];
+    if (!data || typeof data.previousClose !== "number") {
+      return total;
+    }
+    return total + data.previousClose * (stock.quantity || 0);
+  }, 0);
 
   // Today's P&L
-  const todayPnl = holdings.reduce(
-    (total, stock) => {
-      const data = marketData[stock.symbol];
-
-      if (
-        !data ||
-        typeof data.currentPrice !== "number" ||
-        typeof data.previousClose !== "number"
-      ) {
-        return total;
-      }
-
-      return (
-        total +
-        (data.currentPrice -
-          data.previousClose) *
-          stock.quantity
-      );
-    },
-    0
-  );
+  const todayPnl = holdings.reduce((total, stock) => {
+    const data = marketData[stock.symbol];
+    if (
+      !data ||
+      typeof data.currentPrice !== "number" ||
+      typeof data.previousClose !== "number"
+    ) {
+      return total;
+    }
+    return (
+      total + (data.currentPrice - data.previousClose) * (stock.quantity || 0)
+    );
+  }, 0);
 
   // Today's P&L %
   const todayPnlPercent =
-    yesterdayValue > 0
-      ? (todayPnl / yesterdayValue) * 100
-      : 0;
+    yesterdayValue > 0 ? (todayPnl / yesterdayValue) * 100 : 0;
 
-  const formatMoney = (value) =>
-    `₹${Math.abs(value).toFixed(2)}`;
-
-  const formatPnl = (value) =>
-    `${value >= 0 ? "+" : "-"}₹${Math.abs(
-      value
-    ).toFixed(2)}`;
-
-  const summary = [
-    {
-      title: "Total Investment",
-      value: `₹${totalInvestment.toFixed(2)}`,
-      change: "Invested amount",
-      color: "text-white",
-    },
-    {
-      title: "Current Value",
-      value: loading
-        ? "Loading..."
-        : `₹${currentValue.toFixed(2)}`,
-      change: "Current market value",
-      color: "text-white",
-    },
-    {
-      title: "Today's P&L",
-      value: loading
-        ? "Loading..."
-        : formatPnl(todayPnl),
-      change: loading
-        ? "Loading..."
-        : `${
-            todayPnlPercent >= 0 ? "+" : ""
-          }${todayPnlPercent.toFixed(2)}%`,
-      color:
-        todayPnl >= 0
-          ? "text-green-400"
-          : "text-red-400",
-    },
-    {
-      title: "Overall P&L",
-      value: loading
-        ? "Loading..."
-        : formatPnl(overallPnl),
-      change: loading
-        ? "Loading..."
-        : `${
-            overallPnlPercent >= 0 ? "+" : ""
-          }${overallPnlPercent.toFixed(2)}%`,
-      color:
-        overallPnl >= 0
-          ? "text-green-400"
-          : "text-red-400",
-    },
-  ];
+  const positionCountText = `${holdings.length} active ${
+    holdings.length === 1 ? "position" : "positions"
+  }`;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-      {summary.map((item) => (
-        <div
-          key={item.title}
-          className="bg-slate-900 border border-slate-800 rounded-2xl p-6"
-        >
-          <p className="text-sm text-slate-400">
-            {item.title}
-          </p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+      {/* 1. Total Investment */}
+      <StatCard
+        title="Total Investment"
+        value={loading ? "--" : formatINR(totalInvestment)}
+        subtitle={positionCountText}
+        icon={Wallet}
+        iconBg="rgba(79, 70, 229, 0.08)"
+        iconColor="#4f46e5"
+        loading={loading}
+      />
 
-          <h2
-            className={`text-2xl font-bold mt-3 ${item.color}`}
-          >
-            {item.value}
-          </h2>
+      {/* 2. Current Value */}
+      <StatCard
+        title="Current Value"
+        value={loading ? "--" : formatINR(currentValue)}
+        subtitle="Live market value"
+        icon={CircleDollarSign}
+        iconBg="rgba(109, 40, 217, 0.08)"
+        iconColor="#6d28d9"
+        loading={loading}
+      />
 
-          <p className="text-sm text-slate-400 mt-2">
-            {item.change}
-          </p>
-        </div>
-      ))}
+      {/* 3. Today's P&L */}
+      <StatCard
+        title="Today's P&L"
+        value={
+          loading ? (
+            "--"
+          ) : (
+            <span
+              className={
+                todayPnl > 0
+                  ? "text-emerald-600"
+                  : todayPnl < 0
+                  ? "text-rose-600"
+                  : "text-slate-900"
+              }
+            >
+              {formatPnlINR(todayPnl)}
+            </span>
+          )
+        }
+        subtitle="Daily change"
+        badge={
+          !loading && (
+            <PnlBadge
+              value={todayPnl}
+              percent={todayPnlPercent}
+              isPercentOnly
+              size="sm"
+            />
+          )
+        }
+        icon={Clock}
+        iconBg={
+          todayPnl >= 0 ? "rgba(5, 150, 105, 0.08)" : "rgba(225, 29, 72, 0.08)"
+        }
+        iconColor={todayPnl >= 0 ? "#059669" : "#e11d48"}
+        loading={loading}
+      />
+
+      {/* 4. Overall P&L */}
+      <StatCard
+        title="Overall P&L"
+        value={
+          loading ? (
+            "--"
+          ) : (
+            <span
+              className={
+                overallPnl > 0
+                  ? "text-emerald-600"
+                  : overallPnl < 0
+                  ? "text-rose-600"
+                  : "text-slate-900"
+              }
+            >
+              {formatPnlINR(overallPnl)}
+            </span>
+          )
+        }
+        subtitle="Total return"
+        badge={
+          !loading && (
+            <PnlBadge
+              value={overallPnl}
+              percent={overallPnlPercent}
+              isPercentOnly
+              size="sm"
+            />
+          )
+        }
+        icon={overallPnl >= 0 ? TrendingUp : TrendingDown}
+        iconBg={
+          overallPnl >= 0
+            ? "rgba(5, 150, 105, 0.08)"
+            : "rgba(225, 29, 72, 0.08)"
+        }
+        iconColor={overallPnl >= 0 ? "#059669" : "#e11d48"}
+        loading={loading}
+      />
     </div>
   );
 }
