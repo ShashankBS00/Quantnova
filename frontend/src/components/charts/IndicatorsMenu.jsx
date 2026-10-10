@@ -1,33 +1,74 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, X, ChevronDown, Plus } from "lucide-react";
+import { Search, X, ChevronDown, Plus, Eye, EyeOff, SlidersHorizontal, Check } from "lucide-react";
 import { INDICATOR_CATALOGUE, INDICATOR_CATEGORIES } from "@/lib/indicatorCatalogue";
 
-// ─── IndicatorSettingsForm ────────────────────────────────────────────────────
+// ─── IndicatorSettingsModal / Form ────────────────────────────────────────────
 
-function IndicatorSettingsForm({ definition, params, onChange }) {
-  if (definition.paramDefs.length === 0) {
-    return <p className="text-xs text-slate-500 italic">No configurable parameters.</p>;
-  }
+export function IndicatorSettingsModal({ instance, onClose, onUpdate }) {
+  if (!instance) return null;
+  const def = INDICATOR_CATALOGUE.find((d) => d.id === instance.id);
+  if (!def) return null;
+
   return (
-    <div className="flex flex-col gap-2">
-      {definition.paramDefs.map((def) => (
-        <label key={def.key} className="flex flex-col gap-1">
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-            {def.label}
-          </span>
-          <input
-            type="number"
-            min={def.min}
-            max={def.max}
-            step={def.step || 1}
-            value={params[def.key] ?? definition.defaultParams[def.key]}
-            onChange={(e) =>
-              onChange({ ...params, [def.key]: parseFloat(e.target.value) || def.min })
-            }
-            className="w-full bg-[#0c1328] border border-[#1e2d4a] rounded-lg px-3 py-1.5 text-white text-xs font-mono outline-none focus:border-blue-500 transition-colors"
-          />
-        </label>
-      ))}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div className="bg-[#0b1329] border border-slate-700/80 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-[#080d1a]">
+          <div className="flex items-center gap-2">
+            <span
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: instance.color || "#3b82f6" }}
+            />
+            <span className="text-sm font-mono font-bold text-white">{def.fullName}</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="p-4 flex flex-col gap-3">
+          {def.paramDefs.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-2">This indicator has no configurable parameters.</p>
+          ) : (
+            def.paramDefs.map((param) => (
+              <label key={param.key} className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-slate-300 font-medium">{param.label}</span>
+                  <span className="text-slate-500 text-[10px]">
+                    [{param.min} – {param.max}]
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min={param.min}
+                  max={param.max}
+                  step={param.step || 1}
+                  value={instance.params[param.key] ?? def.defaultParams[param.key]}
+                  onChange={(e) =>
+                    onUpdate(instance.instanceId, {
+                      ...instance.params,
+                      [param.key]: parseFloat(e.target.value) || param.min,
+                    })
+                  }
+                  className="w-full bg-[#060a14] border border-slate-700/70 focus:border-blue-500 rounded-xl px-3 py-2 text-white text-xs font-mono outline-none transition-colors"
+                />
+              </label>
+            ))
+          )}
+        </div>
+
+        <div className="px-4 py-3 border-t border-slate-800/80 bg-[#080d1a]/60 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+          >
+            <Check size={13} />
+            <span>Apply</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -37,35 +78,48 @@ function IndicatorSettingsForm({ definition, params, onChange }) {
 export function ActiveIndicatorChip({ instance, onRemove, onEdit, onToggle }) {
   return (
     <div
-      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-mono transition-all select-none ${
+      className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-mono transition-all select-none ${
         instance.visible
-          ? "bg-blue-900/30 border-blue-500/40 text-blue-300"
-          : "bg-slate-800/30 border-slate-600/40 text-slate-500"
+          ? "bg-[#0b1736]/80 border-blue-500/30 text-blue-200 hover:border-blue-400/60"
+          : "bg-slate-900/60 border-slate-700/40 text-slate-500 opacity-60"
       }`}
     >
       <span
         className="w-2 h-2 rounded-full flex-shrink-0"
         style={{ backgroundColor: instance.color || "#60a5fa" }}
       />
-      <span
-        onClick={onEdit}
-        className="hover:text-white transition-colors cursor-pointer"
-      >
-        {instance.label}
-      </span>
+      <span className="font-semibold">{instance.label}</span>
+
+      {/* Visibility Toggle */}
       <button
+        type="button"
         onClick={onToggle}
-        className="opacity-50 hover:opacity-100 transition-opacity ml-0.5"
-        title={instance.visible ? "Hide" : "Show"}
+        className="text-slate-400 hover:text-white p-0.5 rounded transition-colors"
+        title={instance.visible ? "Hide indicator" : "Show indicator"}
       >
-        {instance.visible ? "●" : "○"}
+        {instance.visible ? <Eye size={12} /> : <EyeOff size={12} />}
       </button>
+
+      {/* Settings / Edit */}
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-slate-400 hover:text-blue-400 p-0.5 rounded transition-colors"
+          title="Configure parameters"
+        >
+          <SlidersHorizontal size={11} />
+        </button>
+      )}
+
+      {/* Remove */}
       <button
+        type="button"
         onClick={onRemove}
-        className="opacity-50 hover:opacity-100 transition-opacity"
-        title="Remove"
+        className="text-slate-400 hover:text-red-400 p-0.5 rounded transition-colors ml-0.5"
+        title="Remove indicator"
       >
-        <X size={10} />
+        <X size={11} />
       </button>
     </div>
   );
@@ -73,11 +127,13 @@ export function ActiveIndicatorChip({ instance, onRemove, onEdit, onToggle }) {
 
 // ─── IndicatorsMenu ───────────────────────────────────────────────────────────
 
-export default function IndicatorsMenu({ activeIndicators, onAdd, onRemove, onUpdate }) {
+export default function IndicatorsMenu({
+  activeIndicators,
+  onAdd,
+}) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [editingId, setEditingId] = useState(null); // instanceId being edited
   const menuRef = useRef(null);
 
   // Close on outside click
@@ -85,7 +141,6 @@ export default function IndicatorsMenu({ activeIndicators, onAdd, onRemove, onUp
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setOpen(false);
-        setEditingId(null);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -107,63 +162,56 @@ export default function IndicatorsMenu({ activeIndicators, onAdd, onRemove, onUp
     setSearch("");
   };
 
-  const editingInstance = editingId
-    ? activeIndicators.find((i) => i.instanceId === editingId)
-    : null;
-  const editingDef = editingInstance
-    ? INDICATOR_CATALOGUE.find((d) => d.id === editingInstance.id)
-    : null;
-
   return (
     <div className="relative" ref={menuRef}>
       {/* Trigger */}
       <button
         id="indicators-menu-btn"
-        onClick={() => { setOpen((v) => !v); setEditingId(null); }}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono font-semibold transition-all ${
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-mono font-semibold transition-all shadow-sm ${
           open || activeIndicators.length > 0
             ? "bg-blue-600/20 border-blue-500/50 text-blue-300"
-            : "bg-[#0c1328] border-[#1e2d4a] text-slate-400 hover:text-white hover:border-slate-500"
+            : "bg-[#080e1c] border-slate-700/70 text-slate-400 hover:text-white hover:border-slate-500"
         }`}
       >
-        <span className="text-sm leading-none">📊</span>
-        Indicators
+        <SlidersHorizontal size={13} className="text-blue-400" />
+        <span>Indicators</span>
         {activeIndicators.length > 0 && (
           <span className="bg-blue-600 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
             {activeIndicators.length}
           </span>
         )}
-        <ChevronDown size={12} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown size={12} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
       {/* Catalogue dropdown */}
-      {open && !editingId && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-72 bg-[#0b1222] border border-[#1e2d4a] rounded-xl shadow-2xl overflow-hidden">
+      {open && (
+        <div className="absolute top-full left-0 mt-2 z-50 w-80 bg-[#090f21] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150">
           {/* Search */}
-          <div className="p-3 border-b border-[#1e2d4a]">
+          <div className="p-3 border-b border-slate-800 bg-[#060b17]">
             <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 autoFocus
                 type="text"
-                placeholder="Search indicators…"
+                placeholder="Search indicators (e.g. RSI, MACD)…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-[#070b16] border border-[#1e2d4a] rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-[#0a1224] border border-slate-700/60 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Category tabs */}
-          <div className="flex gap-1 px-3 pt-2 pb-1 overflow-x-auto">
+          <div className="flex gap-1 px-3 pt-2 pb-1.5 overflow-x-auto border-b border-slate-800/60 no-scrollbar">
             {["All", ...INDICATOR_CATEGORIES].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-colors ${
+                className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold transition-colors ${
                   activeCategory === cat
                     ? "bg-blue-600 text-white"
-                    : "text-slate-500 hover:text-white"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                 }`}
               >
                 {cat}
@@ -172,65 +220,45 @@ export default function IndicatorsMenu({ activeIndicators, onAdd, onRemove, onUp
           </div>
 
           {/* Indicator list */}
-          <div className="overflow-y-auto max-h-64 p-2 flex flex-col gap-0.5">
+          <div className="overflow-y-auto max-h-72 p-2 flex flex-col gap-1">
             {filtered.length === 0 && (
-              <p className="text-center text-xs text-slate-600 py-4">No indicators found</p>
+              <p className="text-center text-xs text-slate-500 py-6 font-mono">No indicators found</p>
             )}
             {filtered.map((def) => {
-              const alreadyActive = activeIndicators.some((i) => i.id === def.id);
+              const activeCount = activeIndicators.filter((i) => i.id === def.id).length;
               return (
                 <button
                   key={def.id}
                   onClick={() => handleAdd(def)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors group ${
-                    alreadyActive ? "bg-blue-900/20 hover:bg-blue-900/30" : "hover:bg-[#0c1328]"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all group ${
+                    activeCount > 0
+                      ? "bg-blue-950/30 hover:bg-blue-900/40 border border-blue-500/20"
+                      : "hover:bg-slate-800/40 border border-transparent"
                   }`}
                 >
-                  <div>
-                    <span className="text-xs font-mono font-bold text-white">{def.label}</span>
-                    <span className="ml-2 text-[10px] text-slate-500">{def.fullName}</span>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold text-white">{def.label}</span>
+                      {activeCount > 0 && (
+                        <span className="text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-px rounded font-mono">
+                          Active ({activeCount})
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-slate-400">{def.fullName}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-slate-600 bg-[#0c1328] px-1.5 py-0.5 rounded font-mono">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-slate-400 bg-[#060a14] border border-slate-800 px-1.5 py-0.5 rounded font-mono">
                       {def.category}
                     </span>
                     <Plus
-                      size={12}
-                      className={`opacity-0 group-hover:opacity-100 transition-opacity ${
-                        alreadyActive ? "text-blue-400" : "text-slate-400"
-                      }`}
+                      size={13}
+                      className="text-slate-400 group-hover:text-blue-400 transition-colors"
                     />
                   </div>
                 </button>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* Settings edit panel */}
-      {editingId && editingInstance && editingDef && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-64 bg-[#0b1222] border border-[#1e2d4a] rounded-xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#1e2d4a]">
-            <span className="text-xs font-mono font-bold text-white">{editingDef.fullName}</span>
-            <button onClick={() => setEditingId(null)} className="text-slate-500 hover:text-white">
-              <X size={13} />
-            </button>
-          </div>
-          <div className="p-3">
-            <IndicatorSettingsForm
-              definition={editingDef}
-              params={editingInstance.params}
-              onChange={(newParams) => onUpdate(editingInstance.instanceId, newParams)}
-            />
-          </div>
-          <div className="px-3 pb-3">
-            <button
-              onClick={() => { onRemove(editingInstance.instanceId); setEditingId(null); }}
-              className="w-full py-1.5 rounded-lg bg-red-900/30 border border-red-500/30 text-red-400 text-xs font-mono hover:bg-red-900/50 transition-colors"
-            >
-              Remove Indicator
-            </button>
           </div>
         </div>
       )}

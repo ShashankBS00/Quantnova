@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   createChart,
   CandlestickSeries,
@@ -18,6 +18,7 @@ import {
   calcStandardPivots,
   calcCamarillaPivots,
 } from "@/lib/indicators";
+import { RotateCcw } from "lucide-react";
 
 // ─── Colour palette for indicator lines ──────────────────────────────────────
 
@@ -57,9 +58,16 @@ function addPivotPriceLine(series, value, label, color) {
 
 // ─── CandlestickChart ─────────────────────────────────────────────────────────
 
-export default function CandlestickChart({ symbol, period, interval, activeIndicators }) {
+export default function CandlestickChart({
+  symbol,
+  period,
+  interval,
+  activeIndicators = [],
+  isFullscreen = false,
+  onLoading,
+  onError,
+}) {
   const containerRef = useRef(null);
-  // Stable refs — we never want these to trigger re-renders
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
   const candleDataRef = useRef([]); // latest candle data for indicator re-calc
@@ -67,19 +75,22 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
   const priceLinesRef = useRef({}); // instanceId → priceLine[]
   const paneCountRef = useRef(1); // how many panes currently exist
 
+  const [hoverCandle, setHoverCandle] = useState(null);
+  const [latestCandle, setLatestCandle] = useState(null);
+
   // ── Build chart once ──────────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const chart = createChart(container, {
-      width: container.clientWidth,
-      height: 460,
+      width: container.clientWidth || 800,
+      height: container.clientHeight || 500,
       layout: {
         background: { color: "#070b16" },
         textColor: "#94a3b8",
         fontSize: 11,
-        fontFamily: "'Geist Mono', monospace",
+        fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
       },
       grid: {
         vertLines: { color: "#0f172a" },
@@ -87,8 +98,8 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
       },
       crosshair: {
         mode: 1,
-        vertLine: { color: "#334155", style: 0, width: 1, labelBackgroundColor: "#1e293b" },
-        horzLine: { color: "#334155", style: 0, width: 1, labelBackgroundColor: "#1e293b" },
+        vertLine: { color: "#3b82f680", style: 2, width: 1, labelBackgroundColor: "#1e293b" },
+        horzLine: { color: "#3b82f680", style: 2, width: 1, labelBackgroundColor: "#1e293b" },
       },
       rightPriceScale: {
         borderColor: "#1e293b",
@@ -113,8 +124,27 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
     candleSeriesRef.current = candleSeries;
     paneCountRef.current = 1;
 
-    const ro = new ResizeObserver(() => {
-      chart.applyOptions({ width: container.clientWidth });
+    // Crosshair hover subscriber for live OHLC info
+    chart.subscribeCrosshairMove((param) => {
+      if (!param || !param.time || !param.seriesData) {
+        setHoverCandle(null);
+        return;
+      }
+      const data = param.seriesData.get(candleSeries);
+      if (data) {
+        setHoverCandle(data);
+      } else {
+        setHoverCandle(null);
+      }
+    });
+
+    // Resize observer observing width & height
+    const ro = new ResizeObserver((entries) => {
+      if (!entries || !entries[0]) return;
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0) {
+        chart.applyOptions({ width, height });
+      }
     });
     ro.observe(container);
 
@@ -129,22 +159,44 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
     };
   }, []); // runs only once
 
+  // ── Handle Fullscreen size changes ─────────────────────────────────────────
+  useEffect(() => {
+    const chart = chartRef.current;
+    const container = containerRef.current;
+    if (!chart || !container) return;
+
+    const timer = setTimeout(() => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w > 0 && h > 0) {
+        chart.applyOptions({ width: w, height: h });
+        chart.timeScale().fitContent();
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [isFullscreen]);
+
+  // ── Reset zoom / Fit content ───────────────────────────────────────────────
+  const handleFitContent = useCallback(() => {
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent();
+    }
+  }, []);
+
   // ── Remove all indicator series ───────────────────────────────────────────
   const removeAllIndicatorSeries = useCallback(() => {
     const chart = chartRef.current;
     if (!chart) return;
 
-    // Remove series
     Object.values(seriesMapRef.current).forEach(({ seriesList }) => {
       seriesList.forEach((s) => {
         try { chart.removeSeries(s); } catch { /* already removed */ }
       });
     });
     seriesMapRef.current = {};
-
-    // Price lines are removed when their series is removed
     priceLinesRef.current = {};
-    paneCountRef.current = 1; // reset; candleSeries is pane 0
+    paneCountRef.current = 1;
   }, []);
 
   // ── Render a single indicator onto the chart ──────────────────────────────
@@ -223,7 +275,6 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
           priceFormat: { type: "price", precision: 2 },
         }, pane);
         s.setData(data);
-        // Overbought / oversold lines
         s.createPriceLine({ price: params.overbought, color: "#ef444480", lineWidth: 1, lineStyle: 2, title: "OB" });
         s.createPriceLine({ price: params.oversold, color: "#22c55e80", lineWidth: 1, lineStyle: 2, title: "OS" });
         s.createPriceLine({ price: 50, color: "#ffffff20", lineWidth: 1, lineStyle: 3, title: "" });
@@ -240,7 +291,6 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
           lastValueVisible: false,
           priceLineVisible: false,
         }, pane);
-        // Colour histogram bars by sign
         const histColoured = histogram.map((d) => ({
           ...d,
           color: d.value >= 0 ? INDICATOR_COLORS.macd_hist_pos : INDICATOR_COLORS.macd_hist_neg,
@@ -268,7 +318,6 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
         seriesList.push(s);
 
       } else if (id === "volume") {
-        // Volume histogram coloured by candle direction
         const volData = candles.map((c) => ({
           time: c.time,
           value: c.volume || 0,
@@ -294,7 +343,6 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
           });
           priceLinesRef.current[instanceId] = priceLines;
         }
-        // No chart series added — just price lines on candle pane
 
       } else if (id === "pivot_camarilla") {
         const levels = calcCamarillaPivots(candles);
@@ -335,8 +383,10 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
     const abortCtrl = new AbortController();
 
     async function load() {
+      onLoading?.(true);
+      onError?.(null);
+
       try {
-        // Dynamic import to avoid circular-dep issues
         const { getMarketHistory } = await import("@/services/marketService");
         const result = await getMarketHistory(symbol, period, interval, abortCtrl.signal);
         if (cancelled) return;
@@ -346,11 +396,18 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
         candleSeries.setData(candles);
         chart.timeScale().fitContent();
 
-        // Re-render active indicators with new data
+        if (candles && candles.length > 0) {
+          setLatestCandle(candles[candles.length - 1]);
+        }
+
         renderAllIndicators(candles);
+        onLoading?.(false);
       } catch (err) {
         if (err?.name === "CanceledError" || err?.name === "AbortError") return;
         console.error("[QuantNova] Failed to load market data:", err);
+        onLoading?.(false);
+        const detail = err?.response?.data?.detail;
+        onError?.(detail || `Failed to load ${symbol} (${interval}, ${period}).`);
       }
     }
 
@@ -361,20 +418,73 @@ export default function CandlestickChart({ symbol, period, interval, activeIndic
       abortCtrl.abort();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, period, interval]); // intentionally omit renderAllIndicators to avoid infinite loops
+  }, [symbol, period, interval]);
 
   // Re-render indicators when activeIndicators changes (not candle data)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     renderAllIndicators(candleDataRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndicators]);
+  }, [activeIndicators, renderAllIndicators]);
+
+  // Computed display candle (hover candle taking precedence over latest)
+  const displayCandle = hoverCandle || latestCandle;
+  const candleChange = displayCandle ? displayCandle.close - displayCandle.open : 0;
+  const candleChangePct = displayCandle && displayCandle.open
+    ? (candleChange / displayCandle.open) * 100
+    : 0;
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full"
-      style={{ minHeight: 460 }}
-    />
+    <div className="relative w-full h-full min-h-[480px] bg-[#070b16] select-none flex flex-col">
+      {/* ── TradingView-style top-left OHLC live overlay ──────────────────── */}
+      {displayCandle && (
+        <div className="absolute top-2.5 left-3 z-10 flex items-center gap-2.5 text-[11px] font-mono pointer-events-none bg-[#090f22]/90 px-3 py-1.5 rounded-xl border border-slate-800/80 backdrop-blur-xs shadow-md flex-wrap max-w-[90%]">
+          <span className="font-bold text-white tracking-wide">{symbol}</span>
+          <span className="text-slate-500">·</span>
+          <span className="text-slate-400">
+            O <span className="text-white font-medium">{displayCandle.open?.toFixed(2)}</span>
+          </span>
+          <span className="text-slate-400">
+            H <span className="text-emerald-400 font-medium">{displayCandle.high?.toFixed(2)}</span>
+          </span>
+          <span className="text-slate-400">
+            L <span className="text-rose-400 font-medium">{displayCandle.low?.toFixed(2)}</span>
+          </span>
+          <span className="text-slate-400">
+            C{" "}
+            <span
+              className={`font-medium ${
+                candleChange >= 0 ? "text-emerald-400" : "text-rose-400"
+              }`}
+            >
+              {displayCandle.close?.toFixed(2)}
+            </span>
+          </span>
+          <span
+            className={`font-semibold ${
+              candleChange >= 0 ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {candleChange >= 0 ? "+" : ""}
+            {candleChange.toFixed(2)} ({candleChangePct >= 0 ? "+" : ""}
+            {candleChangePct.toFixed(2)}%)
+          </span>
+        </div>
+      )}
+
+      {/* ── Quick Reset / Fit Zoom Button (Top Right) ────────────────────── */}
+      <button
+        onClick={handleFitContent}
+        title="Reset Chart Zoom / Fit Content"
+        className="absolute top-2.5 right-3 z-10 p-1.5 rounded-xl bg-[#090f22]/90 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-all shadow-md active:scale-95 cursor-pointer"
+      >
+        <RotateCcw size={13} />
+      </button>
+
+      {/* ── Chart Container ──────────────────────────────────────────────── */}
+      <div
+        ref={containerRef}
+        className="w-full flex-1 min-h-[460px]"
+        style={{ height: isFullscreen ? "100%" : "520px" }}
+      />
+    </div>
   );
 }

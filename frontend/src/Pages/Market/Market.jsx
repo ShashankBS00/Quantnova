@@ -1,11 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import CandlestickChart from "@/components/charts/CandlestickChart";
 import StockSearch from "@/components/market/StockSearch";
-import IndicatorsMenu, { ActiveIndicatorChip } from "@/components/charts/IndicatorsMenu";
+import IndicatorsMenu, {
+  ActiveIndicatorChip,
+  IndicatorSettingsModal,
+} from "@/components/charts/IndicatorsMenu";
 import { INDICATOR_CATALOGUE } from "@/lib/indicatorCatalogue";
-import { Activity, Settings, BarChart2, Loader2, AlertCircle } from "lucide-react";
-import { getMarketHistory } from "@/services/marketService";
+import {
+  Activity,
+  BarChart2,
+  Loader2,
+  AlertCircle,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 // ─── Candle interval definitions ──────────────────────────────────────────────
 
@@ -35,7 +44,6 @@ const RANGES = [
   { label: "5Y",  value: "5y" },
 ];
 
-// Map interval → sensible default range
 const DEFAULT_RANGE_FOR_INTERVAL = {
   "1m":  "1d",
   "3m":  "5d",
@@ -50,13 +58,21 @@ const DEFAULT_RANGE_FOR_INTERVAL = {
   "1mo": "5y",
 };
 
-// ─── Colour palette for indicator chips ───────────────────────────────────────
-
-const CHIP_COLORS = [
-  "#60a5fa","#f59e0b","#34d399","#c084fc","#f97316",
-  "#818cf8","#22d3ee","#fb7185","#a78bfa","#4ade80",
+// Quick-pick stocks
+const POPULAR_SYMBOLS = [
+  { label: "RELIANCE", value: "RELIANCE.NS" },
+  { label: "TCS", value: "TCS.NS" },
+  { label: "INFY", value: "INFY.NS" },
+  { label: "HDFCBANK", value: "HDFCBANK.NS" },
+  { label: "TATAMOTORS", value: "TATAMOTORS.NS" },
+  { label: "ICICIBANK", value: "ICICIBANK.NS" },
 ];
 
+// Palette for indicator chips
+const CHIP_COLORS = [
+  "#60a5fa", "#f59e0b", "#34d399", "#c084fc", "#f97316",
+  "#818cf8", "#22d3ee", "#fb7185", "#a78bfa", "#4ade80",
+];
 let colorIndex = 0;
 const nextColor = () => CHIP_COLORS[colorIndex++ % CHIP_COLORS.length];
 
@@ -67,7 +83,6 @@ function useIndicators() {
 
   const add = useCallback((definition) => {
     setIndicators((prev) => {
-      // Allow duplicates — each gets a unique instanceId
       const instanceId = `${definition.id}_${Date.now()}`;
       const paramLabel = Object.entries(definition.defaultParams)
         .map(([, v]) => v)
@@ -126,19 +141,70 @@ export default function MarketChart({ symbol: propSymbol, onSymbolChange }) {
   const urlSymbol = searchParams.get("symbol");
 
   const [symbol, setSymbol] = useState(urlSymbol || propSymbol || "RELIANCE.NS");
+  const [prevUrlSymbol, setPrevUrlSymbol] = useState(urlSymbol);
+
+  // Sync symbol when URL param changes (React-recommended state derivation pattern)
+  if (urlSymbol && urlSymbol !== prevUrlSymbol) {
+    setPrevUrlSymbol(urlSymbol);
+    if (urlSymbol !== symbol) {
+      setSymbol(urlSymbol);
+    }
+  }
+
   const [interval, setInterval] = useState("1d");
   const [period, setPeriod] = useState(DEFAULT_RANGE_FOR_INTERVAL["1d"]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [editingInstanceId, setEditingInstanceId] = useState(null);
 
+  const containerRef = useRef(null);
   const { indicators, add, remove, update, toggle } = useIndicators();
 
-  // Sync symbol when URL param changes (e.g. from another page linking here)
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  // Fullscreen toggle handler (DOM Fullscreen API + state fallback)
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!document.fullscreenElement) {
+      if (el?.requestFullscreen) {
+        el.requestFullscreen().catch(() => {
+          setIsFullscreen(true);
+        });
+      } else {
+        setIsFullscreen(true);
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  // Listen to native fullscreenchange and keyboard shortcut 'F'
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    if (urlSymbol && urlSymbol !== symbol) setSymbol(urlSymbol);
-  }, [urlSymbol]); // eslint-disable-line react-hooks/exhaustive-deps
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    const onKeyDown = (e) => {
+      if (e.key === "f" || e.key === "F") {
+        if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
+        toggleFullscreen();
+      } else if (e.key === "Escape" && isFullscreen) {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isFullscreen, toggleFullscreen]);
 
   const handleSymbolChange = (newSymbol) => {
     let formatted = newSymbol.trim().toUpperCase();
@@ -149,12 +215,10 @@ export default function MarketChart({ symbol: propSymbol, onSymbolChange }) {
     setError(null);
   };
 
-  // When interval changes, auto-select a compatible period
   const handleIntervalChange = (newInterval) => {
     setInterval(newInterval);
     const defaultRange = DEFAULT_RANGE_FOR_INTERVAL[newInterval];
     const intervalDef = INTERVALS.find((i) => i.value === newInterval);
-    // If current period is supported, keep it; otherwise use default
     if (intervalDef && !intervalDef.supportedPeriods.includes(period)) {
       setPeriod(defaultRange);
     }
@@ -166,7 +230,6 @@ export default function MarketChart({ symbol: propSymbol, onSymbolChange }) {
     setError(null);
   };
 
-  // Check whether current interval supports the current period
   const currentIntervalDef = INTERVALS.find((i) => i.value === interval);
   const isRangeSupported = (rangeValue) => {
     if (!currentIntervalDef) return true;
@@ -174,131 +237,182 @@ export default function MarketChart({ symbol: propSymbol, onSymbolChange }) {
   };
 
   const cleanSymbol = symbol.replace(/\.(NS|BO)$/i, "");
+  const editingInstance = indicators.find((i) => i.instanceId === editingInstanceId);
 
   return (
-    <div className="bg-[#0b1222] border border-[#162444] rounded-2xl shadow-xl select-none overflow-hidden">
+    <div
+      ref={containerRef}
+      className={`select-none transition-all duration-200 ${
+        isFullscreen
+          ? "fixed inset-0 z-50 w-screen h-screen bg-[#070b16] flex flex-col overflow-hidden"
+          : "bg-[#090f22] border border-slate-800/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+      }`}
+    >
       {/* ── Top Header ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 px-5 pt-4 pb-3 border-b border-[#162444]">
-        <div className="flex items-start gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 px-5 py-3.5 border-b border-slate-800/80 bg-[#070c1a]/90 backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Symbol & Market Status */}
           <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-blue-400 flex items-center gap-1">
-                <Activity size={11} /> Interactive Chart
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-blue-400 flex items-center gap-1.5 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
+                <Activity size={11} className="text-blue-400" /> Interactive Chart
               </span>
               <span className="text-slate-700">·</span>
-              <span className="text-[9px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-px rounded-full">
+              <span className="text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 NSE Real-Time
               </span>
               {loading && (
-                <Loader2 size={11} className="text-blue-400 animate-spin" />
+                <Loader2 size={12} className="text-blue-400 animate-spin ml-1" />
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-extrabold text-white font-mono tracking-tight">
+
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl font-black text-white font-mono tracking-tight flex items-center gap-1.5">
                 {cleanSymbol}
-              </h2>
-              <span className="text-xs text-slate-500 font-mono">({symbol})</span>
+              </h1>
+              <span className="text-xs text-slate-400 font-mono bg-slate-800/60 px-2 py-0.5 rounded-lg border border-slate-700/50">
+                {symbol}
+              </span>
             </div>
+          </div>
+
+          {/* Quick-Pick Popular Stocks */}
+          <div className="hidden xl:flex items-center gap-1 pl-4 border-l border-slate-800/80">
+            {POPULAR_SYMBOLS.map((item) => {
+              const isCurrent = symbol === item.value;
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => handleSymbolChange(item.value)}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${
+                    isCurrent
+                      ? "bg-blue-600/30 text-blue-300 border border-blue-500/40"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="w-full lg:w-[360px]">
-          <StockSearch onSearch={handleSymbolChange} />
+        {/* Right Header Tools: Search + Fullscreen Button */}
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          <div className="w-full lg:w-[320px]">
+            <StockSearch onSearch={handleSymbolChange} />
+          </div>
+
+          {/* Full Screen Button */}
+          <button
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen (Esc or F)" : "Full Screen (F)"}
+            className={`h-9 px-3 rounded-xl border flex items-center gap-1.5 text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer ${
+              isFullscreen
+                ? "bg-blue-600 border-blue-400 text-white shadow-blue-500/20"
+                : "bg-[#090f22] border-slate-700/80 text-slate-300 hover:text-white hover:border-slate-500 hover:bg-slate-800"
+            }`}
+          >
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            <span className="hidden sm:inline">
+              {isFullscreen ? "Exit Full" : "Full Screen"}
+            </span>
+            <kbd className="hidden md:inline text-[9px] px-1 py-0.5 rounded bg-black/40 text-slate-400 border border-slate-700/50">
+              F
+            </kbd>
+          </button>
         </div>
       </div>
 
       {/* ── Toolbar ────────────────────────────────────────────────────────── */}
-      <div className="px-4 pt-3 pb-2 border-b border-[#162444] flex flex-col gap-2">
-        {/* Row 1: Interval buttons + Indicators + Settings */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Interval strip */}
-          <div className="flex items-center gap-0.5 bg-[#070b16] px-1 py-1 rounded-xl border border-[#162444]">
-            {INTERVALS.map((item) => {
-              const isActive = interval === item.value;
-              return (
-                <button
-                  key={item.value}
-                  onClick={() => handleIntervalChange(item.value)}
-                  title={`Candle interval: ${item.label}`}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all ${
-                    isActive
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-500 hover:text-white hover:bg-[#0c1328]"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
+      <div className="px-4 py-2 border-b border-slate-800/80 bg-[#080d1c]/80 flex flex-col gap-2">
+        {/* Row 1: Interval strip + Indicators + Quick Stats */}
+        <div className="flex items-center gap-2 flex-wrap justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Interval buttons */}
+            <div className="flex items-center gap-0.5 bg-[#060a14] p-1 rounded-xl border border-slate-800/80">
+              {INTERVALS.map((item) => {
+                const isActive = interval === item.value;
+                return (
+                  <button
+                    key={item.value}
+                    onClick={() => handleIntervalChange(item.value)}
+                    title={`Candle interval: ${item.label}`}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-sm shadow-blue-600/30"
+                        : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="h-5 w-px bg-slate-800 hidden sm:block" />
+
+            {/* Indicators dropdown menu */}
+            <IndicatorsMenu
+              activeIndicators={indicators}
+              onAdd={add}
+            />
           </div>
 
-          {/* Divider */}
-          <div className="h-5 w-px bg-[#1e2d4a] hidden sm:block" />
-
-          {/* Indicators menu */}
-          <IndicatorsMenu
-            activeIndicators={indicators}
-            onAdd={add}
-            onRemove={remove}
-            onUpdate={update}
-            onToggle={toggle}
-          />
-
-          {/* Settings placeholder */}
-          <button
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1e2d4a] bg-[#0c1328] text-slate-500 hover:text-white text-xs font-mono transition-colors"
-            title="Chart settings"
-          >
-            <Settings size={12} />
-            <span className="hidden sm:inline">Settings</span>
-          </button>
+          {/* Timeframe pill */}
+          <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
+            <span className="bg-[#060a14] border border-slate-800 px-2.5 py-1 rounded-lg text-slate-300">
+              <BarChart2 size={11} className="inline mr-1.5 text-blue-400" />
+              Interval: <strong className="text-white">{interval}</strong> · Range: <strong className="text-white">{period}</strong>
+            </span>
+          </div>
         </div>
 
-        {/* Row 2: Historical range + active indicator chips */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Historical range */}
-          <div className="flex items-center gap-0.5 bg-[#070b16] px-1 py-1 rounded-xl border border-[#162444]">
-            {RANGES.map((item) => {
-              const isActive = period === item.value;
-              const supported = isRangeSupported(item.value);
-              return (
-                <button
-                  key={item.value}
-                  onClick={() => supported && handlePeriodChange(item.value)}
-                  disabled={!supported}
-                  title={
-                    supported
-                      ? `Show ${item.label} of history`
-                      : `${item.label} is not available for the ${interval} interval`
-                  }
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all ${
-                    !supported
-                      ? "text-slate-700 cursor-not-allowed"
-                      : isActive
-                      ? "bg-[#0c1328] text-blue-400 border border-blue-600/40"
-                      : "text-slate-500 hover:text-white hover:bg-[#0c1328]"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
+        {/* Row 2: Historical range buttons + Active indicator chips */}
+        <div className="flex items-center gap-2 flex-wrap justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+              Range:
+            </span>
+            <div className="flex items-center gap-0.5 bg-[#060a14] p-1 rounded-xl border border-slate-800/80">
+              {RANGES.map((item) => {
+                const isActive = period === item.value;
+                const supported = isRangeSupported(item.value);
+                return (
+                  <button
+                    key={item.value}
+                    onClick={() => supported && handlePeriodChange(item.value)}
+                    disabled={!supported}
+                    title={
+                      supported
+                        ? `Show ${item.label} of history`
+                        : `${item.label} is not available for the ${interval} interval`
+                    }
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all ${
+                      !supported
+                        ? "text-slate-600 cursor-not-allowed opacity-40"
+                        : isActive
+                        ? "bg-[#0c1630] text-blue-400 border border-blue-500/40 shadow-xs"
+                        : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <span className="text-[10px] font-mono text-slate-600 hidden sm:inline">
-            <BarChart2 size={10} className="inline mr-1 text-slate-700" />
-            {interval} · {period}
-          </span>
-
-          {/* Active indicator chips */}
+          {/* Active indicator chips strip */}
           {indicators.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {indicators.map((inst) => (
                 <ActiveIndicatorChip
                   key={inst.instanceId}
                   instance={inst}
                   onRemove={() => remove(inst.instanceId)}
-                  onEdit={() => {}}
+                  onEdit={() => setEditingInstanceId(inst.instanceId)}
                   onToggle={() => toggle(inst.instanceId)}
                 />
               ))}
@@ -309,72 +423,55 @@ export default function MarketChart({ symbol: propSymbol, onSymbolChange }) {
 
       {/* ── Error banner ───────────────────────────────────────────────────── */}
       {error && (
-        <div className="mx-4 mt-2 flex items-center gap-2 bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2 text-xs font-mono text-red-400">
-          <AlertCircle size={13} />
-          {error}
+        <div className="mx-4 my-2 flex items-center justify-between bg-rose-950/40 border border-rose-500/40 rounded-xl px-4 py-2.5 text-xs font-mono text-rose-300 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={14} className="text-rose-400 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-rose-400 hover:text-rose-200 text-xs underline cursor-pointer ml-3"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* ── Chart Canvas ───────────────────────────────────────────────────── */}
-      <div className="w-full bg-[#070b16] border-t border-[#162444] overflow-hidden">
-        <ChartWithState
+      {/* ── Chart Canvas Area ──────────────────────────────────────────────── */}
+      <div
+        className={`w-full relative overflow-hidden ${
+          isFullscreen ? "flex-1 min-h-0" : "flex-1 min-h-[480px]"
+        }`}
+      >
+        {/* Loading overlay */}
+        {loading && (
+          <div className="absolute inset-0 z-20 bg-[#070b16]/70 backdrop-blur-xs flex items-center justify-center transition-opacity">
+            <div className="flex items-center gap-2.5 bg-[#090f22]/90 border border-slate-700/80 px-4 py-2 rounded-xl shadow-xl font-mono text-xs text-blue-300">
+              <Loader2 size={16} className="animate-spin text-blue-400" />
+              <span>Loading market data for {symbol}…</span>
+            </div>
+          </div>
+        )}
+
+        <CandlestickChart
           symbol={symbol}
           period={period}
           interval={interval}
           activeIndicators={indicators}
+          isFullscreen={isFullscreen}
           onLoading={setLoading}
           onError={setError}
         />
       </div>
+
+      {/* ── Indicator Settings Modal (if opened) ────────────────────────────── */}
+      {editingInstance && (
+        <IndicatorSettingsModal
+          instance={editingInstance}
+          onClose={() => setEditingInstanceId(null)}
+          onUpdate={(instanceId, newParams) => update(instanceId, newParams)}
+        />
+      )}
     </div>
-  );
-}
-
-// ChartWithState wrapper — handles loading/error state without touching the
-// imperative chart instance.
-function ChartWithState({ symbol, period, interval, activeIndicators, onLoading, onError }) {
-  const abortRef = useRef(null);
-
-  useEffect(() => {
-    // Abort any in-flight request
-    if (abortRef.current) abortRef.current.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    // Schedule state updates asynchronously to avoid synchronous setState-in-effect
-    queueMicrotask(() => {
-      if (!ctrl.signal.aborted) {
-        onLoading(true);
-        onError(null);
-      }
-    });
-
-    // Kick off the preflight request
-    getMarketHistory(symbol, period, interval, ctrl.signal)
-      .then(() => {
-        if (!ctrl.signal.aborted) {
-          onLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (err?.name === "CanceledError" || err?.name === "AbortError") return;
-        onLoading(false);
-        const detail = err?.response?.data?.detail;
-        onError(
-          detail ||
-            `Failed to load ${symbol} (${interval}, ${period}). Check backend connection.`
-        );
-      });
-
-    return () => ctrl.abort();
-  }, [symbol, period, interval, onLoading, onError]);
-
-  return (
-    <CandlestickChart
-      symbol={symbol}
-      period={period}
-      interval={interval}
-      activeIndicators={activeIndicators}
-    />
   );
 }
