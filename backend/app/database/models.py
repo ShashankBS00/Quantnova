@@ -77,6 +77,64 @@ class User(Base):
         cascade="all, delete-orphan",
     )
 
+    # User → Watchlists
+    watchlists = relationship(
+        "Watchlist",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+
+# ==========================================
+# Watchlist
+# ==========================================
+
+class Watchlist(Base):
+    __tablename__ = "watchlists"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
+
+    name = Column(
+        String(100),
+        nullable=False,
+    )
+
+    # JSON list of stock objects: [{"symbol": "RELIANCE.NS", "name": "Reliance Industries Ltd"}]
+    symbols = Column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    user = relationship(
+        "User",
+        back_populates="watchlists",
+    )
+
 
 # ==========================================
 # Strategy

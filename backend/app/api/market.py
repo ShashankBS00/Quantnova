@@ -132,6 +132,92 @@ def normalize_symbol(symbol: str) -> str:
 
 
 # ==========================================
+# Market Quotes (Batch)
+# ==========================================
+
+@router.get("/quotes")
+def get_batch_quotes(
+    symbols: str = "RELIANCE.NS,TCS.NS,INFY.NS",
+):
+    """
+    Fetch consolidated live quotes for multiple symbols with 5-day historical trend.
+    Utilizes market_cache to avoid redundant upstream calls.
+    """
+    raw_symbols = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    if not raw_symbols:
+        raise HTTPException(status_code=400, detail="No symbols provided")
+
+    # Limit batch size to 50
+    raw_symbols = raw_symbols[:50]
+    results = {}
+
+    for sym in raw_symbols:
+        norm_sym = normalize_symbol(sym)
+        cache_key = f"{norm_sym}:5d:1d"
+
+        hist_data = None
+        if cache_key in market_cache:
+            cached_data, cached_time = market_cache[cache_key]
+            if time.time() - cached_time < CACHE_DURATION:
+                hist_data = cached_data.get("data", [])
+
+        if hist_data is None:
+            try:
+                ticker = yf.Ticker(norm_sym)
+                df = ticker.history(period="5d", interval="1d", auto_adjust=False)
+                if df is not None and not df.empty:
+                    if isinstance(df.columns, pd.MultiIndex):
+                        df.columns = df.columns.get_level_values(0)
+                    candles = []
+                    for timestamp, row in df.iterrows():
+                        candles.append({
+                            "time": int(timestamp.timestamp()),
+                            "open": round(float(row["Open"]), 2),
+                            "high": round(float(row["High"]), 2),
+                            "low": round(float(row["Low"]), 2),
+                            "close": round(float(row["Close"]), 2),
+                            "volume": int(row["Volume"]) if "Volume" in df.columns and not pd.isna(row["Volume"]) else 0,
+                        })
+                    resp_dict = {
+                        "symbol": norm_sym,
+                        "period": "5d",
+                        "interval": "1d",
+                        "data": candles,
+                    }
+                    market_cache[cache_key] = (resp_dict, time.time())
+                    hist_data = candles
+            except Exception:
+                pass
+
+        if hist_data and len(hist_data) >= 1:
+            cur = hist_data[-1]
+            prev = hist_data[-2] if len(hist_data) >= 2 else hist_data[-1]
+            change = round(cur["close"] - prev["close"], 2)
+            pct_change = round((change / prev["close"] * 100) if prev["close"] else 0.0, 2)
+            results[norm_sym] = {
+                "symbol": norm_sym,
+                "price": cur["close"],
+                "change": change,
+                "change_percent": pct_change,
+                "open": cur["open"],
+                "high": cur["high"],
+                "low": cur["low"],
+                "prev_close": prev["close"],
+                "volume": cur["volume"],
+                "sparkline": [c["close"] for c in hist_data],
+                "last_updated": cur["time"],
+            }
+        else:
+            results[norm_sym] = None
+
+    return {
+        "success": True,
+        "count": len(results),
+        "quotes": results,
+    }
+
+
+# ==========================================
 # Market History
 # ==========================================
 
@@ -197,7 +283,7 @@ def get_history(
         ):
 
             print(
-                f"⚡ Cache hit: "
+                f"[Cache Hit] "
                 f"{yahoo_symbol} "
                 f"({period}, {interval})"
             )
@@ -205,7 +291,7 @@ def get_history(
             return cached_data
 
     print(
-        f"🌐 Fetching Yahoo Finance: "
+        f"[Yahoo Finance] Fetching: "
         f"{yahoo_symbol} "
         f"({period}, {interval})"
     )

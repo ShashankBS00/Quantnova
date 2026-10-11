@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -44,7 +45,17 @@ function PanelTitle({ icon: Icon, color, tint, title, description, action }) {
 
 export default function Trading() {
   const [account, setAccount] = useState(null);
-  const [symbol, setSymbol] = useState("TCS.NS");
+  const [searchParams] = useSearchParams();
+  const urlSymbol = searchParams.get("symbol");
+  const [symbol, setSymbol] = useState(urlSymbol ? urlSymbol.toUpperCase() : "TCS.NS");
+  const [prevUrlSymbol, setPrevUrlSymbol] = useState(urlSymbol);
+
+  if (urlSymbol && urlSymbol !== prevUrlSymbol) {
+    setPrevUrlSymbol(urlSymbol);
+    if (urlSymbol.toUpperCase() !== symbol) {
+      setSymbol(urlSymbol.toUpperCase());
+    }
+  }
   const [quantity, setQuantity] = useState(1);
   const [price, setPrice] = useState("");
   const [side, setSide] = useState("BUY");
@@ -60,11 +71,21 @@ export default function Trading() {
   const [strategyResult, setStrategyResult] = useState(null);
   const [activeTab, setActiveTab] = useState("holdings");
 
-  async function loadMarketPrice() {
-    if (!symbol.trim()) return;
+  const loadAccount = useCallback(async () => {
+    try {
+      const data = await getTradingAccount();
+      setAccount(data);
+    } catch (err) {
+      console.error("Failed to load trading account:", err);
+    }
+  }, []);
+
+  const loadMarketPrice = useCallback(async () => {
+    const sym = symbol.trim().toUpperCase();
+    if (!sym) return;
     try {
       setPriceLoading(true);
-      const currentPrice = await getCurrentPrice(symbol.toUpperCase());
+      const currentPrice = await getCurrentPrice(sym);
       setMarketPrice(currentPrice);
       setPrice(Number(currentPrice).toFixed(2));
     } catch (error) {
@@ -74,36 +95,56 @@ export default function Trading() {
     } finally {
       setPriceLoading(false);
     }
-  }
-
-  async function loadAccount() {
-    try {
-      setAccount(await getTradingAccount());
-    } catch (error) {
-      console.error("Failed to load trading account:", error);
-    }
-  }
-
-  async function loadStrategies() {
-    try {
-      const data = await getStrategies();
-      setStrategies(data);
-      if (data.length > 0 && !selectedStrategyId) setSelectedStrategyId(String(data[0].id));
-    } catch (error) {
-      console.error("Failed to load strategies:", error);
-    }
-  }
+  }, [symbol]);
 
   useEffect(() => {
-    loadAccount();
-    loadStrategies();
+    let cancelled = false;
+    getTradingAccount()
+      .then((data) => {
+        if (!cancelled) setAccount(data);
+      })
+      .catch((err) => console.error("Failed to load trading account:", err));
+
+    getStrategies()
+      .then((data) => {
+        if (!cancelled) {
+          setStrategies(data);
+          if (data.length > 0) setSelectedStrategyId(String(data[0].id));
+        }
+      })
+      .catch((err) => console.error("Failed to load strategies:", err));
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    loadMarketPrice();
+    let cancelled = false;
+    const sym = symbol.trim().toUpperCase();
+    if (sym) {
+      getCurrentPrice(sym)
+        .then((currentPrice) => {
+          if (!cancelled) {
+            setMarketPrice(currentPrice);
+            setPrice(Number(currentPrice).toFixed(2));
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            console.error("Failed to load market price:", error);
+            setMarketPrice(null);
+            setPrice("");
+          }
+        });
+    }
+
     const interval = setInterval(loadMarketPrice, 30000);
-    return () => clearInterval(interval);
-  }, [symbol]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [symbol, loadMarketPrice]);
 
   async function handleRunStrategy() {
     setMessage("");

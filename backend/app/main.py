@@ -1,3 +1,17 @@
+import sys
+
+# Reconfigure stdout/stderr to UTF-8 on Windows to prevent charmap encoding errors
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.trading import router as trading_router
@@ -15,6 +29,7 @@ from app.api.stock_search import router as stock_search_router
 from app.api.prediction_history import (
     router as prediction_history_router
 )
+from app.api.watchlist import router as watchlist_router
 app = FastAPI(
     title="QuantNova API",
     version="1.0.0",
@@ -52,10 +67,11 @@ app.include_router(stock_search_router)
 app.include_router(
     prediction_history_router
 )
+app.include_router(watchlist_router)
 
 @app.get("/")
 def home():
     return {
-        "message": "Welcome to QuantNova API 🚀",
+        "message": "Welcome to QuantNova API",
         "status": "Running",
     }

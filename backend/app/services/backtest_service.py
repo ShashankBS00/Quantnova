@@ -157,7 +157,7 @@ def load_market_data(
     period = config["period"]
 
     print(
-        f"🌐 Backtest data: "
+        f"[Backtest data]: "
         f"{yahoo_symbol} | "
         f"timeframe={timeframe} | "
         f"interval={interval} | "
