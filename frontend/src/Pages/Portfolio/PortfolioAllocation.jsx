@@ -1,69 +1,86 @@
 import React, { useMemo } from "react";
-import { PieChart as PieIcon, Layers } from "lucide-react";
+import { PieChart as PieIcon, Layers, Wallet } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { formatINR } from "@/components/common/PnlBadge";
+import { formatINR, formatPercent, getCompanyName, getCleanSymbol } from "@/utils/stockUtils";
 
-const COLORS = [
+const PALETTE = [
   "#4f46e5", // Indigo
   "#06b6d4", // Cyan
   "#10b981", // Emerald
+  "#8b5cf6", // Violet
   "#f59e0b", // Amber
-  "#8b5cf6", // Purple
   "#ec4899", // Pink
   "#3b82f6", // Blue
+  "#14b8a6", // Teal
+  "#f97316", // Orange
+  "#6366f1", // Light Indigo
 ];
 
 export default function PortfolioAllocation({
   holdings = [],
   marketData = {},
+  cash = 100000,
   loading = false,
 }) {
-  const { data, total } = useMemo(() => {
+  const { data, totalEquities, grandTotal } = useMemo(() => {
     const items = holdings
       .map((stock) => {
-        const price = marketData[stock.symbol]?.currentPrice;
-        if (typeof price === "number") {
-          return {
-            name: stock.symbol,
-            value: stock.quantity * price,
-            quantity: stock.quantity,
-            price: price,
-          };
-        }
-        return null;
+        const quote = marketData[stock.symbol];
+        const price = quote?.price ?? quote?.currentPrice ?? stock.averagePrice;
+        const validPrice = typeof price === "number" && !Number.isNaN(price) ? price : Number(stock.averagePrice) || 0;
+        const val = (Number(stock.quantity) || 0) * validPrice;
+
+        return {
+          symbol: stock.symbol,
+          cleanSymbol: getCleanSymbol(stock.symbol),
+          companyName: getCompanyName(stock.symbol),
+          value: val,
+          quantity: stock.quantity,
+          price: validPrice,
+        };
       })
-      .filter(Boolean)
+      .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    const totalVal = items.reduce((sum, item) => sum + item.value, 0);
-    return { data: items, total: totalVal };
-  }, [holdings, marketData]);
+    const equitiesVal = items.reduce((sum, item) => sum + item.value, 0);
+    const totalWithCash = equitiesVal + Math.max(0, Number(cash) || 0);
+
+    return {
+      data: items,
+      totalEquities: equitiesVal,
+      grandTotal: totalWithCash,
+    };
+  }, [holdings, marketData, cash]);
+
+  const cashPercent = grandTotal > 0 ? (cash / grandTotal) * 100 : 100;
+  const equitiesPercent = grandTotal > 0 ? (totalEquities / grandTotal) * 100 : 0;
 
   return (
     <section className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-sm">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
             <PieIcon className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              Portfolio Allocation
+            <h2
+              className="text-lg font-bold text-slate-900 tracking-tight"
+              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+            >
+              Portfolio Allocation & Asset Weights
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Asset distribution based on current market valuation
+              Capital distribution across active equities and liquid cash reserves
             </p>
           </div>
         </div>
 
-        {total > 0 && !loading && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 font-medium">
-              Total Valuation:
-            </span>
-            <span className="font-mono font-bold text-sm text-slate-900 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/60">
-              {formatINR(total)}
+        {grandTotal > 0 && !loading && (
+          <div className="flex items-center gap-3 text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <span className="text-slate-400 font-medium">Total Assets:</span>
+            <span className="font-bold text-sm text-slate-900 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+              {formatINR(grandTotal)}
             </span>
           </div>
         )}
@@ -72,132 +89,152 @@ export default function PortfolioAllocation({
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-2">
           <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
-          <span className="text-xs font-medium">Updating allocation…</span>
+          <span className="text-xs font-medium">Calculating portfolio allocation…</span>
         </div>
       ) : data.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-56 text-slate-400 gap-2">
           <Layers className="w-8 h-8 stroke-1 text-slate-300" />
-          <p className="text-sm font-medium text-slate-600">
-            No allocation data available
-          </p>
-          <p className="text-xs text-slate-400">
-            Holdings will automatically appear here once trades are executed.
+          <p className="text-sm font-semibold text-slate-700">No Equities in Portfolio</p>
+          <p className="text-xs text-slate-400 max-w-sm text-center">
+            All virtual capital is currently held as liquid cash ({formatINR(cash)}). Asset weights will visualize once stocks are purchased.
           </p>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left: Donut Chart */}
-          <div className="lg:col-span-5 relative flex items-center justify-center">
-            <div className="w-full h-60 max-w-[260px] mx-auto relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={68}
-                    outerRadius={96}
-                    paddingAngle={3}
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                  >
-                    {data.map((stock, index) => (
-                      <Cell
-                        key={stock.name}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(val) => [formatINR(val), "Value"]}
-                    contentStyle={{
-                      background: "#ffffff",
-                      border: "1px solid rgba(79, 70, 229, 0.16)",
-                      borderRadius: "12px",
-                      boxShadow: "0 8px 24px rgba(79, 70, 229, 0.08)",
-                      color: "#1e293b",
-                      fontFamily: "monospace",
-                      fontSize: "12px",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-
-              {/* Center Stat */}
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Total Equity
+        <div className="mt-6 space-y-6">
+          {/* Top Macro Split Bar: Cash vs Equities */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs font-bold text-slate-700 gap-2 mb-2">
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1.5 text-indigo-900">
+                  <span className="h-2.5 w-2.5 rounded-full bg-indigo-600" />
+                  Equities: {formatINR(totalEquities)} ({equitiesPercent.toFixed(1)}%)
                 </span>
-                <span className="mt-0.5 text-base font-extrabold font-mono text-slate-900 tracking-tight">
-                  {formatINR(total)}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium mt-0.5">
-                  {data.length} {data.length === 1 ? "Stock" : "Stocks"}
+                <span className="flex items-center gap-1.5 text-emerald-800">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Available Cash: {formatINR(cash)} ({cashPercent.toFixed(1)}%)
                 </span>
               </div>
             </div>
+
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200 flex shadow-inner">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500"
+                style={{ width: `${equitiesPercent}%` }}
+                title={`Equities: ${equitiesPercent.toFixed(1)}%`}
+              />
+              <div
+                className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
+                style={{ width: `${cashPercent}%` }}
+                title={`Cash: ${cashPercent.toFixed(1)}%`}
+              />
+            </div>
           </div>
 
-          {/* Right: Allocation Breakdown List */}
-          <div className="lg:col-span-7 space-y-3">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              Breakdown by Asset
-            </div>
-
-            {data.map((stock, index) => {
-              const percentage = total > 0 ? (stock.value / total) * 100 : 0;
-              const color = COLORS[index % COLORS.length];
-
-              return (
-                <div
-                  key={stock.name}
-                  className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/60 hover:bg-slate-100/70 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ background: color }}
-                      />
-                      <span className="font-bold text-sm text-slate-900 tracking-tight truncate">
-                        {stock.name}
-                      </span>
-                      <span className="text-xs text-slate-400 font-mono">
-                        {stock.quantity} shs
-                      </span>
-                    </div>
-
-                    <div className="text-right flex items-center gap-3">
-                      <span className="font-mono font-bold text-sm text-slate-900">
-                        {formatINR(stock.value)}
-                      </span>
-                      <span
-                        className="px-2 py-0.5 rounded-md text-xs font-bold font-mono"
-                        style={{
-                          background: `${color}15`,
-                          color: color,
-                        }}
-                      >
-                        {percentage.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Progress bar track */}
-                  <div className="mt-2.5 h-1.5 w-full bg-slate-200/60 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${percentage}%`,
-                        background: color,
+          {/* Donut Chart + Table Breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            {/* Left: Donut Chart */}
+            <div className="lg:col-span-5 relative flex items-center justify-center">
+              <div className="w-full h-64 max-w-[280px] mx-auto relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data}
+                      dataKey="value"
+                      nameKey="cleanSymbol"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={68}
+                      outerRadius={98}
+                      paddingAngle={3}
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    >
+                      {data.map((entry, index) => (
+                        <Cell key={`cell-${entry.symbol}`} fill={PALETTE[index % PALETTE.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const item = payload[0].payload;
+                          const pct = totalEquities > 0 ? (item.value / totalEquities) * 100 : 0;
+                          return (
+                            <div
+                              className="bg-white border border-slate-200 rounded-xl p-3 shadow-xl text-xs space-y-1"
+                              style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                            >
+                              <p className="font-bold text-slate-900">{item.cleanSymbol}</p>
+                              <p className="text-slate-500 font-sans text-[11px]">{item.companyName}</p>
+                              <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-4">
+                                <span className="text-slate-500">Valuation:</span>
+                                <span className="font-bold text-indigo-700">{formatINR(item.value)}</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <span className="text-slate-500">Weight:</span>
+                                <span className="font-bold text-slate-900">{pct.toFixed(2)}%</span>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
                       }}
                     />
-                  </div>
+                  </PieChart>
+                </ResponsiveContainer>
+
+                {/* Donut Center Display */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Equities
+                  </span>
+                  <span className="text-base font-black text-slate-900 font-mono">
+                    {formatINR(totalEquities)}
+                  </span>
+                  <span className="text-[10px] text-indigo-600 font-bold">
+                    {data.length} Assets
+                  </span>
                 </div>
-              );
-            })}
+              </div>
+            </div>
+
+            {/* Right: Allocation Breakdown List */}
+            <div className="lg:col-span-7">
+              <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto pr-2">
+                {data.map((item, index) => {
+                  const pct = totalEquities > 0 ? (item.value / totalEquities) * 100 : 0;
+                  const color = PALETTE[index % PALETTE.length];
+
+                  return (
+                    <div
+                      key={item.symbol}
+                      className="py-3 flex items-center justify-between gap-4 hover:bg-slate-50/80 px-2 rounded-xl transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
+                          style={{ backgroundColor: color }}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 text-xs tracking-tight">
+                            {item.cleanSymbol}
+                          </p>
+                          <p className="text-[11px] text-slate-400 truncate max-w-[200px] sm:max-w-[280px]">
+                            {item.companyName}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                        <p className="font-bold text-slate-900 text-xs">{formatINR(item.value)}</p>
+                        <p className="text-[11px] font-semibold text-indigo-600">
+                          {pct.toFixed(2)}% of equity
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
