@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Activity, ArrowRight, BrainCircuit, Check, ChevronRight, CircleDot, Cpu, Menu, Network, ShieldCheck, X, Zap } from "lucide-react";
+import { Activity, ArrowRight, BrainCircuit, Check, CircleDot, Cpu, Menu, Network, X, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const FEATURES = [
@@ -222,7 +222,35 @@ export default function Landing() {
 
     <section id="features" className="relative mx-auto max-w-7xl px-5 py-24 sm:px-8 lg:py-32"><div className="mb-12 flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="mb-4 font-mono text-[11px] font-semibold tracking-[0.18em] text-[#00ff66]">THE QUANTNOVA ADVANTAGE</p><h2 className="max-w-2xl text-3xl font-semibold tracking-[-0.055em] text-white sm:text-5xl">Built for the moment between signal and certainty.</h2></div><p className="max-w-sm text-sm leading-6 text-slate-500">Institutional-grade infrastructure, shaped into a workflow fast enough for the individual edge.</p></div><div className="grid gap-4 md:grid-cols-3">{FEATURES.map(function (feature) { const Icon = feature.icon; return <article key={feature.title} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06] sm:p-7"><div className="absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-20 blur-2xl transition-opacity duration-300 group-hover:opacity-40" style={{ background: feature.accent }} /><div className="relative"><div className="grid h-11 w-11 place-items-center rounded-xl border bg-black/20" style={{ borderColor: feature.accent + "45", color: feature.accent }}><Icon size={21} /></div><h3 className="mt-7 text-xl font-semibold tracking-[-0.04em] text-white">{feature.title}</h3><p className="mt-3 text-sm leading-6 text-slate-400">{feature.copy}</p><div className="mt-8 border-t border-white/8 pt-4"><p className="font-mono text-2xl" style={{ color: feature.accent }}>{feature.metric}</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.11em] text-slate-500">{feature.label}</p></div></div></article>; })}</div></section>
     <OrderBook />
-    <section id="pricing" className="relative mx-auto max-w-7xl px-5 pb-24 sm:px-8 lg:pb-32"><div className="relative overflow-hidden rounded-3xl border border-[#00ff66]/20 bg-[#07110d] px-6 py-12 text-center shadow-[0_0_80px_rgba(0,255,102,0.06)] sm:px-12 sm:py-16"><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(0,255,102,0.16),transparent_55%)]" /><div className="relative mx-auto max-w-2xl"><ShieldCheck className="mx-auto text-[#00ff66]" size={28} /><p className="mt-5 font-mono text-[10px] tracking-[0.2em] text-[#8affb5]">ENGINEERED FOR COMPOUNDING</p><h2 className="mt-4 text-3xl font-semibold tracking-[-0.055em] text-white sm:text-5xl">Your next market edge is waiting.</h2><p className="mx-auto mt-5 max-w-xl text-base leading-7 text-slate-400">Join the private beta and build on infrastructure designed to stay decisive when markets do not.</p><Link to="/register" className="mt-8 inline-flex items-center gap-2 rounded-lg bg-[#00ff66] px-6 py-3 text-sm font-bold text-[#03110a] transition-all hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(0,255,102,0.35)]">Launch QuantNova <ChevronRight size={17} /></Link></div></div></section>
+    <section id="pricing" className="relative mx-auto max-w-7xl px-5 pb-24 sm:px-8 lg:pb-32">
+      <div className="mb-12 text-center">
+        <p className="mb-4 font-mono text-[11px] font-semibold tracking-[0.18em] text-[#00ff66]">STRAIGHTFORWARD PRICING</p>
+        <h2 className="text-3xl font-semibold tracking-[-0.055em] text-white sm:text-5xl">Choose your market edge.</h2>
+        <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-400">Start with the essentials, then unlock the full research and trading toolkit as you grow.</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {[
+          { name: "Starter", description: "Explore the QuantNova workflow.", price: "$0", features: ["Market dashboard", "Watchlists", "Paper trading"], action: "Get started" },
+          { name: "Pro", description: "For traders ready to go deeper.", price: "$29", featured: true, features: ["Everything in Starter", "AI-powered predictions", "Strategy backtesting", "Portfolio analytics"], action: "Choose Pro" },
+          { name: "Desk", description: "The complete toolkit for active desks.", price: "$99", features: ["Everything in Pro", "Advanced trading analytics", "Expanded strategy workflows", "Priority support"], action: "Choose Desk" },
+        ].map(function (plan) {
+          return <article key={plan.name} className={"relative flex flex-col overflow-hidden rounded-2xl border p-6 sm:p-7 " + (plan.featured ? "border-[#00ff66]/50 bg-[#08150e] shadow-[0_0_45px_rgba(0,255,102,0.09)]" : "border-white/10 bg-white/[0.035]")}>
+            {plan.featured && <span className="absolute right-5 top-5 rounded-full border border-[#00ff66]/25 bg-[#00ff66]/10 px-2.5 py-1 font-mono text-[9px] font-semibold tracking-[0.12em] text-[#9cffc1]">MOST POPULAR</span>}
+            <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
+            <p className="mt-2 min-h-10 text-sm leading-5 text-slate-400">{plan.description}</p>
+            <p className="mt-6 font-mono text-4xl font-semibold tracking-tight text-white">{plan.price}<span className="ml-1 text-sm font-normal text-slate-500">/ month</span></p>
+            <div className="my-6 h-px bg-white/10" />
+            <ul className="flex-1 space-y-3">
+              {plan.features.map(function (feature) {
+                return <li key={feature} className="flex items-start gap-2.5 text-sm text-slate-300"><Check size={16} className="mt-0.5 shrink-0 text-[#00ff66]" />{feature}</li>;
+              })}
+            </ul>
+            <Link to="/register" className={"mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all " + (plan.featured ? "bg-[#00ff66] text-[#03110a] hover:shadow-[0_0_24px_rgba(0,255,102,0.3)]" : "border border-white/15 bg-white/[0.04] text-white hover:border-white/30 hover:bg-white/[0.08]")}>{plan.action}<ArrowRight size={15} /></Link>
+          </article>;
+        })}
+      </div>
+      <p className="mt-6 text-center font-mono text-[10px] leading-5 text-slate-500">Private beta access is free. Paid plans are planned; no payment is collected during the beta.</p>
+    </section>
     <footer className="border-t border-white/8 px-5 py-8 sm:px-8"><div className="mx-auto flex max-w-7xl flex-col gap-4 text-[11px] text-slate-600 sm:flex-row sm:items-center sm:justify-between"><span className="font-mono">© 2026 QUANTNOVA SYSTEMS</span><span className="font-mono">MARKET DATA IS ILLUSTRATIVE · NOT INVESTMENT ADVICE</span></div></footer>
   </main>;
 }
